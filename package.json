@@ -1,0 +1,88 @@
+{
+  "name": "ghost-drive",
+  "version": "0.0.1",
+  "description": "Drive-compatible unified view across multiple peers and drives over RPC",
+  "imports": {
+    "path": {
+      "bare": "bare-path",
+      "default": "path"
+    },
+    "http": {
+      "bare": "bare-http1",
+      "default": "http"
+    },
+    "fs": {
+      "bare": "bare-fs",
+      "default": "fs"
+    },
+    "os": {
+      "bare": "bare-os",
+      "default": "os"
+    }
+  },
+  "exports": {
+    "./package": "./package.json",
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "package.json",
+    "index.js",
+    "index.d.ts",
+    "schema"
+  ],
+  "scripts": {
+    "format": "prettier . --write",
+    "test": "brittle-bare test/index.js",
+    "lint": "prettier . --check && lunte",
+    "dev": "npm run clean && npm run build && ./out/darwin-arm64/ghost-drive.app/Contents/MacOS/ghost-drive",
+    "build": "bare-build --out out/darwin-arm64 --host darwin-arm64 --name ghost-drive --runtime bare-native/runtime app.js",
+    "build:android": "bare-build --out out/android-arm64 --host android-arm64 --manifest manifest.xml --identifier io.ghostdrive.app --name GhostDrive --runtime bare-native/runtime app.js",
+    "clean": "rm -rf out"
+  },
+  "devDependencies": {
+    "@hyperswarm/secret-stream": "^6.9.1",
+    "bare-build": "^0.5.0",
+    "brittle": "^3.0.0",
+    "localdrive": "^2.2.1",
+    "prettier": "^3.8.1",
+    "prettier-config-holepunch": "^2.0.0",
+    "require-asset": "^1.2.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/holepunchto/ghost-drive.git"
+  },
+  "author": "Holepunch Inc",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/holepunchto/ghost-drive/issues"
+  },
+  "homepage": "https://github.com/holepunchto/ghost-drive",
+  "dependencies": {
+    "bare-console": "^6.1.0",
+    "bare-crypto": "^1.13.4",
+    "bare-fs": "^4.6.0",
+    "bare-http1": "^4.5.5",
+    "bare-native": "^0.1.2",
+    "bare-os": "^3.8.7",
+    "bare-path": "^3.0.0",
+    "cellery": "^1.4.4",
+    "cellery-html": "^1.1.10",
+    "compact-encoding": "^2.19.2",
+    "corestore": "^7.9.2",
+    "distributed-drive": "^0.0.1",
+    "gip-remote": "file:../gip-remote",
+    "hyperschema": "^1.20.1",
+    "hyperswarm": "^4.17.0",
+    "protomux-rpc": "^1.9.0",
+    "rabin-native": "^2.0.0",
+    "ready-resource": "^1.2.0",
+    "record-cache": "^2.0.0",
+    "safety-catch": "^1.0.3",
+    "sodium-native": "^5.1.0",
+    "streamx": "^2.25.0"
+  }
+}
