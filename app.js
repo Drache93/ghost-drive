@@ -9,7 +9,7 @@ const console = new Console()
 const appCore = new App()
 
 const server = new HTMLServer({
-  target: { port: 0 },
+  target: { port: 0, width: 1200, height: 800, title: 'GhostDrive' },
   app,
   streams: [appCore.stream],
   onerror: console.error

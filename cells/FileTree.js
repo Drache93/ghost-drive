@@ -12,19 +12,22 @@ module.exports = class FileTree extends Cell {
     this.onclick = opts.onclick || null
 
     this._paths = new Map()
-    this._dirs = new Set()
     this._idCounter = 0
 
     this.sub({ event: 'click' }, (_, { data }) => {
       const hit = this._paths.get(data.id)
       if (!hit) return
-      if (this.onclick) this.onclick(hit.path, hit.type, data)
+
+      if (hit.type === 'dir') {
+        this._toggleDir(hit, data.id)
+      } else if (this.onclick) {
+        this.onclick(hit.path, hit.type, data)
+      }
     })
   }
 
   async render() {
     this._paths.clear()
-    this._dirs.clear()
     this._idCounter = 0
 
     this.cellery.pub({
@@ -36,15 +39,52 @@ module.exports = class FileTree extends Cell {
 
     if (!this.drive) return
 
-    for await (const entry of this.drive.list(this.root)) {
-      if (entry.key.startsWith('/.')) continue
-      const path = entry.key
-      const parts = path.replace(/^\//, '').split('/')
-      const name = parts.pop()
+    await this._loadDir(this.root, 'ft-root')
+  }
 
-      this._ensureDirs(parts)
+  async _loadDir(prefix, parentElId) {
+    const dirs = []
+    const files = []
 
-      const parentId = parts.length > 0 ? dirId(parts.join('/')) : 'ft-root'
+    for await (const name of this.drive.readdir(prefix)) {
+      if (name.startsWith('.') || name === '$RECYCLE.BIN' || name === 'System Volume Information')
+        continue
+
+      const path = prefix === '/' ? '/' + name : prefix + '/' + name
+      const isDir = !hasExt(name)
+
+      if (isDir) dirs.push({ name, path })
+      else files.push({ name, path })
+    }
+
+    dirs.sort((a, b) => a.name.localeCompare(b.name))
+    files.sort((a, b) => a.name.localeCompare(b.name))
+
+    for (const { name, path } of dirs) {
+      const id = `ft-${this._idCounter++}`
+      const childrenId = `ft-ch-${id}`
+
+      this._paths.set(id, { path, type: 'dir', loaded: false })
+
+      this.cellery.pub({
+        event: 'render',
+        content: html`
+          <details class="ft-dir">
+            <summary id="${id}" class="ft-row">
+              ${ICONS.folder}
+              <span class="ft-name">${esc(name)}</span>
+            </summary>
+            <div id="${childrenId}" class="ft-children"></div>
+          </details>
+        `,
+        id: parentElId,
+        insert: 'beforeend'
+      })
+
+      this.cellery.pub({ event: 'register', id, targets: ['click'] })
+    }
+
+    for (const { name, path } of files) {
       const id = `ft-${this._idCounter++}`
 
       this._paths.set(id, { path, type: 'file' })
@@ -55,51 +95,22 @@ module.exports = class FileTree extends Cell {
           <div id="${id}" class="ft-row ft-file">
             ${icon(name)}
             <span class="ft-name">${esc(name)}</span>
-            <span class="ft-size">${sizeLabel(entry)}</span>
           </div>
-        `,
-        id: parentId,
-        insert: 'beforeend'
-      })
-
-      this.cellery.pub({
-        event: 'register',
-        id,
-        targets: ['click']
-      })
-    }
-  }
-
-  _ensureDirs(parts) {
-    for (let i = 0; i < parts.length; i++) {
-      const dirPath = parts.slice(0, i + 1).join('/')
-      if (this._dirs.has(dirPath)) continue
-
-      this._dirs.add(dirPath)
-
-      const parentPath = parts.slice(0, i).join('/')
-      const parentElId = i > 0 ? dirId(parentPath) : 'ft-root'
-      const id = dirId(dirPath)
-      const clickId = `ft-${this._idCounter++}`
-      const name = parts[i]
-
-      this._paths.set(clickId, { path: '/' + dirPath, type: 'dir' })
-
-      this.cellery.pub({
-        event: 'render',
-        content: html`
-          <details class="ft-dir">
-            <summary id="${clickId}" class="ft-row">
-              ${ICONS.folder}
-              <span class="ft-name">${esc(name)}</span>
-            </summary>
-            <div id="${id}" class="ft-children"></div>
-          </details>
         `,
         id: parentElId,
         insert: 'beforeend'
       })
+
+      this.cellery.pub({ event: 'register', id, targets: ['click'] })
     }
+  }
+
+  async _toggleDir(hit, id) {
+    if (hit.loaded) return
+
+    hit.loaded = true
+    const childrenId = `ft-ch-${id}`
+    await this._loadDir(hit.path, childrenId)
   }
 
   async refresh() {
@@ -107,8 +118,9 @@ module.exports = class FileTree extends Cell {
   }
 }
 
-function dirId(dirPath) {
-  return 'ft-d-' + dirPath.replace(/[^a-zA-Z0-9]/g, '-')
+function hasExt(name) {
+  const i = name.lastIndexOf('.')
+  return i > 0 && i < name.length - 1
 }
 
 const STYLE = html`<style>
@@ -187,13 +199,6 @@ const STYLE = html`<style>
     text-overflow: ellipsis;
     flex: 1;
   }
-
-  .ft-size {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: var(--text-muted, #3f3f46);
-    flex-shrink: 0;
-  }
 </style>`
 
 function esc(str) {
@@ -202,15 +207,6 @@ function esc(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-}
-
-function sizeLabel(entry) {
-  const bytes = entry.value?.blob?.byteLength
-  if (!bytes) return ''
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'
-  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB'
-  return (bytes / 1073741824).toFixed(1) + ' GB'
 }
 
 function icon(name) {

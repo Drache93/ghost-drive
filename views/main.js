@@ -1,4 +1,5 @@
 const { Cell } = require('cellery')
+const { Readable } = require('streamx')
 const FileTree = require('../cells/FileTree')
 
 const html = String.raw
@@ -23,20 +24,18 @@ module.exports = class MainView extends Cell {
     // --- Preview ---
     this.sub({ serving: true }, (_, data) => {
       const ext = data.path?.split('.').pop().toLowerCase()
-      let content = ''
+
+      this.cellery.pub({ event: 'render', content: data.path, id: 'content-header' })
 
       if (['mp4', 'mkv', 'webm', 'mov'].includes(ext)) {
-        content = html`<video controls autoplay src="${data.url}"></video>`
+        this.cellery.pub({ event: 'render', content: html`<video controls autoplay src="${data.url}"></video>`, id: 'preview' })
       } else if (['mp3', 'flac', 'ogg', 'wav', 'aac', 'm4a'].includes(ext)) {
-        content = html`<audio controls autoplay src="${data.url}"></audio>`
+        this.cellery.pub({ event: 'render', content: html`<audio controls autoplay src="${data.url}"></audio>`, id: 'preview' })
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
-        content = html`<img src="${data.url}" />`
+        this.cellery.pub({ event: 'render', content: html`<img src="${data.url}" />`, id: 'preview' })
       } else {
-        content = html`<span class="preview-empty">${data.path}</span>`
+        this._previewText(data)
       }
-
-      this.cellery.pub({ event: 'render', content, id: 'preview' })
-      this.cellery.pub({ event: 'render', content: data.path, id: 'content-header' })
     })
 
     // --- Ready ---
@@ -53,6 +52,28 @@ module.exports = class MainView extends Cell {
       content: html`${STYLE}${LAYOUT}`,
       id: 'root'
     })
+  }
+
+  async _previewText(data) {
+    try {
+      const head = await collectStream(this.app.drive.createReadStream(data.path, { length: 8192 }))
+
+      if (!head || head.length === 0) {
+        this.cellery.pub({ event: 'render', content: html`<span class="preview-empty">Empty file</span>`, id: 'preview' })
+        return
+      }
+
+      if (!isValidUTF8(head)) {
+        this.cellery.pub({ event: 'render', content: html`<span class="preview-empty">Binary file</span>`, id: 'preview' })
+        return
+      }
+
+      const buf = await this.app.drive.get(data.path)
+      const text = buf.toString('utf-8')
+      this.cellery.pub({ event: 'render', content: html`<pre class="preview-text">${esc(text)}</pre>`, id: 'preview' })
+    } catch {
+      this.cellery.pub({ event: 'render', content: html`<span class="preview-empty">Cannot read file</span>`, id: 'preview' })
+    }
   }
 
   setup() {
@@ -102,6 +123,35 @@ module.exports = class MainView extends Cell {
 
   async refreshTree() {
     if (this.tree) await this.tree.refresh()
+  }
+}
+
+async function collectStream(rs) {
+  const chunks = []
+  for await (const chunk of rs) chunks.push(chunk)
+  return chunks.length === 0 ? null : Buffer.concat(chunks)
+}
+
+function esc(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function isValidUTF8(buf) {
+  // Check first 8KB for null bytes or invalid UTF-8 sequences
+  const check = buf.subarray(0, 8192)
+  for (let i = 0; i < check.length; i++) {
+    if (check[i] === 0) return false
+  }
+  try {
+    const str = buf.toString('utf-8')
+    // If decoding produces replacement chars for a clean buffer, it's not valid
+    return !str.includes('\ufffd')
+  } catch {
+    return false
   }
 }
 
@@ -425,5 +475,32 @@ const STYLE = html`<style>
     color: var(--text-muted);
     letter-spacing: 2px;
     text-transform: uppercase;
+  }
+
+  .preview-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    padding: 20px;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    tab-size: 4;
+  }
+
+  .preview-text::-webkit-scrollbar {
+    width: 6px;
+  }
+  .preview-text::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .preview-text::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
   }
 </style>`
