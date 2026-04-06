@@ -184,20 +184,13 @@ module.exports = class MainView extends Cell {
     } else {
       let items = ''
       for (const d of drives) {
-        const name = d.split('/').pop() || d
-        items += html`<div class="drive-item" title="${esc(d)}">
-          <svg
-            class="drive-icon"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.2"
-          >
-            <path d="M2 4h12v8H2z" />
-            <circle cx="12" cy="8" r="1" />
-          </svg>
-          <span class="drive-name">${esc(name)}</span>
-          <span class="drive-path">${esc(d)}</span>
+        const isHD = d.type === 'hyperdrive'
+        const label = isHD ? d.id.slice(0, 8) + '...' + d.id.slice(-8) : d.id.split('/').pop() || d.id
+        const iconSvg = isHD ? DRIVE_ICONS.hyper : DRIVE_ICONS.local
+        items += html`<div class="drive-item" title="${esc(d.id)}">
+          ${iconSvg}
+          <span class="drive-name">${esc(label)}</span>
+          <span class="drive-type">${isHD ? 'hyper' : 'local'}</span>
         </div>`
       }
       this.cellery.pub({
@@ -277,6 +270,11 @@ const DOWNLOAD_ICON = html`<svg
 
 const LOADER = html`<div class="preview-loader"><div class="loader-spinner"></div></div>`
 
+const DRIVE_ICONS = {
+  local: html`<svg class="drive-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 4h12v8H2z"/><circle cx="12" cy="8" r="1"/></svg>`,
+  hyper: html`<svg class="drive-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M8 2L2 8l6 6 6-6z"/><circle cx="8" cy="8" r="1.5"/></svg>`
+}
+
 const LAYOUT = html`
   <div id="app">
     <input type="checkbox" id="sidebar-toggle" />
@@ -312,7 +310,7 @@ const LAYOUT = html`
         </div>
         <div id="drive-list"></div>
         <form id="add-drive-form" class="conn-input-row" style="padding: 8px 12px;">
-          <input name="path" class="conn-input" type="text" placeholder="/path/to/folder" />
+          <input name="path" class="conn-input" type="text" placeholder="Path or hyperdrive key" />
           <button class="conn-btn" type="submit">Add</button>
         </form>
       </div>
@@ -595,15 +593,13 @@ const STYLE = html`<style>
     white-space: nowrap;
   }
 
-  .drive-path {
+  .drive-type {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    min-width: 0;
+    font-size: 9px;
+    color: var(--accent-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    flex-shrink: 0;
   }
 
   /* --- Files --- */

@@ -7,6 +7,7 @@ const dir = require('bare-storage')
 const path = require('path')
 
 const Localdrive = require('localdrive')
+const Hyperdrive = require('hyperdrive')
 const DistributedDrive = require('distributed-drive')
 
 const serve = require('../lib/serve')
@@ -45,6 +46,11 @@ module.exports = class App extends ReadyResource {
   async _open() {
     await this.store.ready()
 
+    this.swarm.on('connection', (conn) => {
+      console.log('connection')
+      this.store.replicate(conn)
+    })
+
     const keyPair = await this.store.createKeyPair('ghost-drive')
     this.key = keyPair.publicKey
 
@@ -56,16 +62,20 @@ module.exports = class App extends ReadyResource {
     const removed = new Set()
     for (let i = 0; i < this._drives.length; i++) {
       const entry = await this._drives.get(i)
-      if (entry.removed) removed.add(entry.path)
-      else removed.delete(entry.path)
+      const id = entry.path || entry.key
+      if (entry.removed) removed.add(id)
+      else removed.delete(id)
     }
     for (let i = 0; i < this._drives.length; i++) {
       const entry = await this._drives.get(i)
-      if (entry.removed || removed.has(entry.path)) continue
+      const id = entry.path || entry.key
+      if (entry.removed || removed.has(id)) continue
       if (entry.type === 'local') this._registerLocal(entry.path)
+      else if (entry.type === 'hyperdrive') await this._registerHyperdrive(entry.key, true)
     }
 
     this.swarm.on('connection', (stream) => {
+      stream.on('error', (err) => console.log('stream error:', err.message))
       this.peers++
       const peer = this.drive.addPeer(stream)
       console.log(`peer connected (${this.peers} online)`)
@@ -96,26 +106,30 @@ module.exports = class App extends ReadyResource {
     for (let i = 0; i < this._joins.length; i++) {
       const entry = await this._joins.get(i)
       const key = Buffer.from(entry.key, 'hex')
-      this._joinTopic(key)
+      this._joinTopic(key, false, true)
       console.log('rejoining:', entry.key)
     }
 
     this.stream.push({ ready: true })
   }
 
-  async _joinTopic(key, server) {
+  async _joinTopic(key, server, noWait) {
     const hex = key.toString('hex')
     if (this._topics.has(hex)) return
 
     const discovery = this.swarm.join(key, { server: !!server, client: !server })
+    this._topics.set(hex, true)
+
+    if (noWait) {
+      discovery.flushed().catch((err) => console.log('discovery flush error:', err.message))
+      return
+    }
 
     if (server) {
       await discovery.flushed()
     } else {
       await this.swarm.flush()
     }
-
-    this._topics.set(hex, true)
   }
 
   async joinKey(hex) {
@@ -140,11 +154,41 @@ module.exports = class App extends ReadyResource {
     console.log('registered drive:', drivePath)
   }
 
-  async addDrive(drivePath) {
-    if (this._driveMap.has(drivePath)) return
+  async _registerHyperdrive(hex, noWait) {
+    if (this._driveMap.has(hex)) return
+    const key = Buffer.from(hex, 'hex')
+    const hd = new Hyperdrive(this.store, key)
+    await hd.ready()
+    this._driveMap.set(hex, hd)
+    this.drive.register(hd)
+    await this._joinTopic(hd.discoveryKey, false, noWait)
+    console.log('registered hyperdrive:', hex)
+  }
 
-    // Validate path is readable
-    const test = new Localdrive(drivePath)
+  async addDrive(input) {
+    input = input.trim()
+    const isKey = /^[0-9a-f]{64}$/i.test(input) && !input.includes('/')
+
+    if (isKey) {
+      if (this._driveMap.has(input)) return
+
+      try {
+        await this._registerHyperdrive(input)
+      } catch (err) {
+        console.log('cannot add hyperdrive:', input, err.message)
+        this.stream.push({ error: true, message: 'Cannot add hyperdrive: ' + err.message })
+        return
+      }
+
+      await this._drives.append({ type: 'hyperdrive', key: input })
+      this.stream.push({ drivesChanged: true })
+      return
+    }
+
+    if (this._driveMap.has(input)) return
+
+    // Validate local path is readable
+    const test = new Localdrive(input)
     let valid = false
     try {
       for await (const _ of test.readdir('/')) {
@@ -152,41 +196,45 @@ module.exports = class App extends ReadyResource {
         break
       }
       if (!valid) {
-        // Empty dir is still valid, check if path exists
         const fs = require('fs')
-        fs.accessSync(drivePath)
+        fs.accessSync(input)
         valid = true
       }
     } catch (err) {
-      console.log('cannot access drive path:', drivePath, err.message)
-      this.stream.push({ error: true, message: 'Cannot access: ' + drivePath })
+      console.log('cannot access drive path:', input, err.message)
+      this.stream.push({ error: true, message: 'Cannot access: ' + input })
       return
     }
 
-    await this._drives.append({ type: 'local', path: drivePath })
-
-    this._registerLocal(drivePath)
-
+    await this._drives.append({ type: 'local', path: input })
+    this._registerLocal(input)
     this.stream.push({ drivesChanged: true })
   }
 
-  async removeDrive(drivePath) {
-    const local = this._driveMap.get(drivePath)
-    if (!local) return
+  async removeDrive(id) {
+    const drv = this._driveMap.get(id)
+    if (!drv) return
 
-    this.drive.unregister(local)
-    this._driveMap.delete(drivePath)
-    await local.close()
+    this.drive.unregister(drv)
+    this._driveMap.delete(id)
+    await drv.close()
 
-    // Rebuild the drives core without this entry
-    // For now just mark as removed — full compaction later with hyperdb
-    await this._drives.append({ type: 'local', path: drivePath, removed: true })
+    const isKey = /^[0-9a-f]{64}$/i.test(id)
+    const entry = isKey
+      ? { type: 'hyperdrive', key: id, removed: true }
+      : { type: 'local', path: id, removed: true }
 
+    await this._drives.append(entry)
     this.stream.push({ drivesChanged: true })
   }
 
   async listDrives() {
-    return [...this._driveMap.keys()]
+    const list = []
+    for (const [id, drv] of this._driveMap) {
+      const isKey = /^[0-9a-f]{64}$/i.test(id)
+      list.push({ id, type: isKey ? 'hyperdrive' : 'local' })
+    }
+    return list
   }
 
   async preview(path) {
