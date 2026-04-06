@@ -32,17 +32,40 @@ module.exports = class MainView extends Cell {
       const ext = data.path?.split('.').pop().toLowerCase()
       const filename = data.path.split('/').pop()
 
-      const dlLink = html`<a href="${data.dlUrl}" download="${esc(filename)}" class="dl-btn" title="Download" onclick="event.preventDefault();fetch(this.href).then(r=>r.blob()).then(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='${esc(filename)}';a.click();URL.revokeObjectURL(a.href)})">${DOWNLOAD_ICON}</a>`
-      this.cellery.pub({ event: 'render', content: html`
-        <span class="header-path">${data.path}</span>${dlLink}
-      `, id: 'content-header-text' })
+      const dlLink = html`<a
+        href="${data.dlUrl}"
+        download="${esc(filename)}"
+        class="dl-btn"
+        title="Download"
+        onclick="event.preventDefault();fetch(this.href).then(r=>r.blob()).then(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='${esc(
+          filename
+        )}';a.click();URL.revokeObjectURL(a.href)})"
+        >${DOWNLOAD_ICON}</a
+      >`
+      this.cellery.pub({
+        event: 'render',
+        content: html` <span class="header-path">${data.path}</span>${dlLink} `,
+        id: 'content-header-text'
+      })
 
       if (['mp4', 'mkv', 'webm', 'mov'].includes(ext)) {
-        this.cellery.pub({ event: 'render', content: html`<video controls autoplay src="${data.url}"></video>`, id: 'preview' })
+        this.cellery.pub({
+          event: 'render',
+          content: html`<video controls autoplay src="${data.url}"></video>`,
+          id: 'preview'
+        })
       } else if (['mp3', 'flac', 'ogg', 'wav', 'aac', 'm4a'].includes(ext)) {
-        this.cellery.pub({ event: 'render', content: html`<audio controls autoplay src="${data.url}"></audio>`, id: 'preview' })
+        this.cellery.pub({
+          event: 'render',
+          content: html`<audio controls autoplay src="${data.url}"></audio>`,
+          id: 'preview'
+        })
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
-        this.cellery.pub({ event: 'render', content: html`<img src="${data.url}" />`, id: 'preview' })
+        this.cellery.pub({
+          event: 'render',
+          content: html`<img src="${data.url}" />`,
+          id: 'preview'
+        })
       } else {
         this._previewText(data)
       }
@@ -78,20 +101,36 @@ module.exports = class MainView extends Cell {
       const head = await collectStream(this.app.drive.createReadStream(data.path, { length: 8192 }))
 
       if (!head || head.length === 0) {
-        this.cellery.pub({ event: 'render', content: html`<span class="preview-empty">Empty file</span>`, id: 'preview' })
+        this.cellery.pub({
+          event: 'render',
+          content: html`<span class="preview-empty">Empty file</span>`,
+          id: 'preview'
+        })
         return
       }
 
       if (!isValidUTF8(head)) {
-        this.cellery.pub({ event: 'render', content: html`<span class="preview-empty">Binary file</span>`, id: 'preview' })
+        this.cellery.pub({
+          event: 'render',
+          content: html`<span class="preview-empty">Binary file</span>`,
+          id: 'preview'
+        })
         return
       }
 
       const buf = await this.app.drive.get(data.path)
       const text = buf.toString('utf-8')
-      this.cellery.pub({ event: 'render', content: html`<pre class="preview-text">${esc(text)}</pre>`, id: 'preview' })
+      this.cellery.pub({
+        event: 'render',
+        content: html`<pre class="preview-text">${esc(text)}</pre>`,
+        id: 'preview'
+      })
     } catch {
-      this.cellery.pub({ event: 'render', content: html`<span class="preview-empty">Cannot read file</span>`, id: 'preview' })
+      this.cellery.pub({
+        event: 'render',
+        content: html`<span class="preview-empty">Cannot read file</span>`,
+        id: 'preview'
+      })
     }
   }
 
@@ -148,7 +187,16 @@ module.exports = class MainView extends Cell {
       for (const d of drives) {
         const name = d.split('/').pop() || d
         items += html`<div class="drive-item" title="${esc(d)}">
-          <svg class="drive-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 4h12v8H2z"/><circle cx="12" cy="8" r="1"/></svg>
+          <svg
+            class="drive-icon"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.2"
+          >
+            <path d="M2 4h12v8H2z" />
+            <circle cx="12" cy="8" r="1" />
+          </svg>
           <span class="drive-name">${esc(name)}</span>
           <span class="drive-path">${esc(d)}</span>
         </div>`
@@ -217,7 +265,16 @@ function isValidUTF8(buf) {
   }
 }
 
-const DOWNLOAD_ICON = html`<svg class="dl-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2v8M4 7l4 4 4-4"/><path d="M2 12v2h12v-2"/></svg>`
+const DOWNLOAD_ICON = html`<svg
+  class="dl-icon"
+  viewBox="0 0 16 16"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.4"
+>
+  <path d="M8 2v8M4 7l4 4 4-4" />
+  <path d="M2 12v2h12v-2" />
+</svg>`
 
 const LOADER = html`<div class="preview-loader"><div class="loader-spinner"></div></div>`
 
@@ -617,7 +674,9 @@ const STYLE = html`<style>
     height: 32px;
     border-radius: 4px;
     color: var(--text-secondary);
-    transition: color 0.2s, background 0.2s;
+    transition:
+      color 0.2s,
+      background 0.2s;
     text-decoration: none;
   }
 
@@ -686,7 +745,9 @@ const STYLE = html`<style>
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .preview-text {

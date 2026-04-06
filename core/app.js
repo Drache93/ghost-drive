@@ -147,7 +147,7 @@ module.exports = class App extends ReadyResource {
     const test = new Localdrive(drivePath)
     let valid = false
     try {
-      for await (const name of test.readdir('/')) {
+      for await (const _ of test.readdir('/')) {
         valid = true
         break
       }

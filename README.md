@@ -47,6 +47,6 @@ Add local folders via the "Drives" section — files are only shared after expli
 This is an early experiment. Known limitations:
 
 - No encryption/whitelisting of peers yet (anyone with your key can browse)
-- No hyperdrive or git remote drive support yet - Already supported by distributed-drive 
+- No hyperdrive or git remote drive support yet - Already supported by distributed-drive
 - File type detection is extension-based
 - No file upload/write support
