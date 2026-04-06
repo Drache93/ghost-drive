@@ -47,7 +47,6 @@ module.exports = class App extends ReadyResource {
     await this.store.ready()
 
     this.swarm.on('connection', (conn) => {
-      console.log('connection')
       this.store.replicate(conn)
     })
 

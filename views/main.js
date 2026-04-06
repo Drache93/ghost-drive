@@ -185,7 +185,9 @@ module.exports = class MainView extends Cell {
       let items = ''
       for (const d of drives) {
         const isHD = d.type === 'hyperdrive'
-        const label = isHD ? d.id.slice(0, 8) + '...' + d.id.slice(-8) : d.id.split('/').pop() || d.id
+        const label = isHD
+          ? d.id.slice(0, 8) + '...' + d.id.slice(-8)
+          : d.id.split('/').pop() || d.id
         const iconSvg = isHD ? DRIVE_ICONS.hyper : DRIVE_ICONS.local
         items += html`<div class="drive-item" title="${esc(d.id)}">
           ${iconSvg}
@@ -271,8 +273,26 @@ const DOWNLOAD_ICON = html`<svg
 const LOADER = html`<div class="preview-loader"><div class="loader-spinner"></div></div>`
 
 const DRIVE_ICONS = {
-  local: html`<svg class="drive-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 4h12v8H2z"/><circle cx="12" cy="8" r="1"/></svg>`,
-  hyper: html`<svg class="drive-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M8 2L2 8l6 6 6-6z"/><circle cx="8" cy="8" r="1.5"/></svg>`
+  local: html`<svg
+    class="drive-icon"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.2"
+  >
+    <path d="M2 4h12v8H2z" />
+    <circle cx="12" cy="8" r="1" />
+  </svg>`,
+  hyper: html`<svg
+    class="drive-icon"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.2"
+  >
+    <path d="M8 2L2 8l6 6 6-6z" />
+    <circle cx="8" cy="8" r="1.5" />
+  </svg>`
 }
 
 const LAYOUT = html`
