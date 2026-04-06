@@ -37,9 +37,10 @@
     "format": "prettier . --write",
     "test": "brittle-bare test/index.js",
     "lint": "prettier . --check && lunte",
-    "dev": "npm run clean && npm run build && ./out/darwin-arm64/ghost-drive.app/Contents/MacOS/ghost-drive",
-    "build": "bare-build --out out/darwin-arm64 --host darwin-arm64 --name ghost-drive --runtime bare-native/runtime app.js",
-    "build:android": "bare-build --out out/android-arm64 --host android-arm64 --manifest manifest.xml --identifier io.ghostdrive.app --name GhostDrive --runtime bare-native/runtime app.js",
+    "dev": "npm run clean && npm run build && ./out/darwin-arm64/GhostDrive.app/Contents/MacOS/GhostDrive",
+    "build:all": "npm run clean && npm run build && npm run build:android",
+    "build": "bare-build --out out/darwin-arm64 --host darwin-arm64 --icon ghost.png --name GhostDrive --runtime bare-native/runtime app.js",
+    "build:android": "bare-build --out out/android-arm64 --resources resources/android --host android-arm64 --manifest manifest.xml --identifier io.ghostdrive.app --name GhostDrive --runtime bare-native/runtime app.js",
     "clean": "rm -rf out"
   },
   "devDependencies": {
