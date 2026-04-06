@@ -32,7 +32,7 @@ module.exports = class MainView extends Cell {
       const ext = data.path?.split('.').pop().toLowerCase()
       const filename = data.path.split('/').pop()
 
-      const dlLink = html`<a href="${data.dlUrl}" download="${filename}" target="_blank" class="dl-btn" title="Download">${DOWNLOAD_ICON}</a>`
+      const dlLink = html`<a href="${data.dlUrl}" download="${esc(filename)}" class="dl-btn" title="Download" onclick="event.preventDefault();fetch(this.href).then(r=>r.blob()).then(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='${esc(filename)}';a.click();URL.revokeObjectURL(a.href)})">${DOWNLOAD_ICON}</a>`
       this.cellery.pub({ event: 'render', content: html`
         <span class="header-path">${data.path}</span>${dlLink}
       `, id: 'content-header-text' })
@@ -123,7 +123,11 @@ module.exports = class MainView extends Cell {
     this.tree = new FileTree({
       drive: this.app.drive,
       onclick: (path, type) => {
-        if (type === 'file') this.app.preview(path)
+        if (type === 'file') {
+          this.cellery.pub({ event: 'render', content: LOADER, id: 'preview' })
+          this.cellery.pub({ event: 'render', content: path, id: 'content-header-text' })
+          this.app.preview(path)
+        }
       }
     })
 
@@ -214,6 +218,8 @@ function isValidUTF8(buf) {
 }
 
 const DOWNLOAD_ICON = html`<svg class="dl-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2v8M4 7l4 4 4-4"/><path d="M2 12v2h12v-2"/></svg>`
+
+const LOADER = html`<div class="preview-loader"><div class="loader-spinner"></div></div>`
 
 const LAYOUT = html`
   <div id="app">
@@ -632,6 +638,7 @@ const STYLE = html`<style>
     justify-content: center;
     background: var(--bg-primary);
     overflow: hidden;
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   #preview video,
@@ -646,6 +653,7 @@ const STYLE = html`<style>
     height: 100%;
     object-fit: contain;
     background: #000;
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   #preview img {
@@ -658,6 +666,27 @@ const STYLE = html`<style>
     color: var(--text-muted);
     letter-spacing: 2px;
     text-transform: uppercase;
+  }
+
+  .preview-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+  }
+
+  .loader-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
   .preview-text {
