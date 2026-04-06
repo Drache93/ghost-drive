@@ -41,3 +41,4 @@ jobs:
           files: |
             out/ghost-drive-${{ github.ref_name }}-darwin-arm64.tar.gz
             out/ghost-drive-${{ github.ref_name }}-android-arm64.tar.gz
+          token: ${{ SECRETS.GH_TOKEN }}

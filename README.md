@@ -11,7 +11,7 @@ Share local folders across devices over encrypted P2P connections — no servers
 - **[bare](https://github.com/holepunchto/bare)** / **[bare-native](https://github.com/holepunchto/bare-native)** — Runtime and native app builds (macOS, Android)
 - **[hyperswarm](https://github.com/holepunchto/hyperswarm)** — Peer discovery and connections via DHT
 - **[corestore](https://github.com/holepunchto/corestore)** — Persistent identity and storage
-- **[distributed-drive](https://github.com/holepunchto/distributed-drive)** — Aggregates multiple drives (local, remote) with RPC over protomux
+- **[distributed-drive](https://www.npmjs.com/package/distributed-drive)** — Aggregates multiple drives (local, remote) with RPC over protomux
 - **[localdrive](https://github.com/holepunchto/localdrive)** — File system drive interface
 - **[cellery](https://github.com/holepunchto/cellery)** / **[cellery-html](https://github.com/holepunchto/cellery-html)** — Reactive UI cells over WebSocket
 
