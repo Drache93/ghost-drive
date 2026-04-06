@@ -1,6 +1,6 @@
 {
   "name": "ghost-drive",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Drive-compatible unified view across multiple peers and drives over RPC",
   "imports": {
     "path": {
