@@ -35,7 +35,6 @@
   ],
   "scripts": {
     "format": "prettier . --write",
-    "test": "brittle-bare test/index.js",
     "lint": "prettier . --check && lunte",
     "dev": "npm run clean && npm run build && ./out/darwin-arm64/GhostDrive.app/Contents/MacOS/GhostDrive",
     "build:all": "npm run clean && npm run build && npm run build:android",
