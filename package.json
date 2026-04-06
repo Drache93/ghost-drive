@@ -47,6 +47,7 @@
     "bare-build": "^0.5.0",
     "brittle": "^3.0.0",
     "localdrive": "^2.2.1",
+    "lunte": "^1.6.0",
     "prettier": "^3.8.1",
     "prettier-config-holepunch": "^2.0.0",
     "require-asset": "^1.2.1"
