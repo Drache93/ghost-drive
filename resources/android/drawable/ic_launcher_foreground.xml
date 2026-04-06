@@ -4,10 +4,10 @@
     android:height="108dp"
     android:viewportWidth="512"
     android:viewportHeight="512">
-  <group android:scaleX="0.61722225"
-      android:scaleY="0.61722225"
-      android:translateX="97.99111"
-      android:translateY="97.99111">
+  <group android:scaleX="0.7638889"
+      android:scaleY="0.7638889"
+      android:translateX="60.444443"
+      android:translateY="60.444443">
     <path
         android:pathData="M40,0L472,0A40,40 0,0 1,512 40L512,472A40,40 0,0 1,472 512L40,512A40,40 0,0 1,0 472L0,40A40,40 0,0 1,40 0z"
         android:fillColor="#0a0a0c"/>
@@ -18,7 +18,7 @@
         android:fillColor="#00000000"
         android:fillAlpha="0.25">
       <aapt:attr name="android:strokeColor">
-        <gradient
+        <gradient 
             android:startX="80"
             android:startY="52"
             android:endX="432"
@@ -36,7 +36,7 @@
         android:strokeWidth="1"
         android:fillAlpha="0.4">
       <aapt:attr name="android:fillColor">
-        <gradient
+        <gradient 
             android:startX="110"
             android:startY="82"
             android:endX="402"
@@ -47,7 +47,7 @@
         </gradient>
       </aapt:attr>
       <aapt:attr name="android:strokeColor">
-        <gradient
+        <gradient 
             android:startX="110"
             android:startY="82"
             android:endX="402"
@@ -121,7 +121,7 @@
         android:strokeWidth="2.5"
         android:fillColor="#00000000">
       <aapt:attr name="android:strokeColor">
-        <gradient
+        <gradient 
             android:startX="201"
             android:startY="140"
             android:endX="311"
