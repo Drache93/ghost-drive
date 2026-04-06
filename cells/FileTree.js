@@ -47,8 +47,9 @@ module.exports = class FileTree extends Cell {
     const files = []
 
     for await (const name of this.drive.readdir(prefix)) {
-      if (name.startsWith('.') || name === '$RECYCLE.BIN' || name === 'System Volume Information')
+      if (name.startsWith('.') || name === '$RECYCLE.BIN' || name === 'System Volume Information') {
         continue
+      }
 
       const path = prefix === '/' ? '/' + name : prefix + '/' + name
       const isDir = !hasExt(name)
@@ -217,8 +218,9 @@ function icon(name) {
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return ICONS.image
   if (
     ['js', 'ts', 'mjs', 'cjs', 'json', 'yaml', 'yml', 'html', 'css', 'py', 'go', 'rs'].includes(ext)
-  )
+  ) {
     return ICONS.code
+  }
   if (['md', 'txt', 'pdf', 'doc', 'docx', 'rtf'].includes(ext)) return ICONS.doc
 
   return ICONS.file

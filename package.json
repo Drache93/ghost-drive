@@ -77,6 +77,7 @@
     "corestore": "^7.9.2",
     "distributed-drive": "^0.0.2",
     "gip-remote": "^1.2.3",
+    "hyperdrive": "^13.3.2",
     "hyperschema": "^1.20.1",
     "hyperswarm": "^4.17.0",
     "protomux-rpc": "^1.9.0",

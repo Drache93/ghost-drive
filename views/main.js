@@ -1,5 +1,4 @@
 const { Cell } = require('cellery')
-const { Readable } = require('streamx')
 const FileTree = require('../cells/FileTree')
 
 const html = String.raw
