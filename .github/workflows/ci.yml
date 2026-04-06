@@ -23,7 +23,7 @@ jobs:
     needs: lint
     runs-on: macos-latest
     permissions:
-     contents: write
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
