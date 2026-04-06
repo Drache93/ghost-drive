@@ -35,8 +35,8 @@ jobs:
         run: |
           VERSION=${GITHUB_REF_NAME}
           cd out
-          tar -czf ghost-drive-${VERSION}-darwin-arm64.tar.gz darwin-arm64
-          tar -czf ghost-drive-${VERSION}-android-arm64.tar.gz android-arm64
+          tar -czf ghost-drive-${VERSION}-darwin-arm64.tar.gz darwin-arm64/GhostDrive.app
+          tar -czf ghost-drive-${VERSION}-android-arm64.tar.gz android-arm64/GhostDrive.apk
       - name: Upload release artifacts
         uses: softprops/action-gh-release@v2
         with:
