@@ -11,21 +11,31 @@ module.exports = class MainView extends Cell {
     this.app = opts.app
     this.tree = null
 
-    // --- Join button ---
+    // --- Forms ---
     this.sub({ event: 'submit' }, (_, { data }) => {
-      console.log('data!', data)
       if (data.id === 'join-input') {
         const { key } = data.value
-        console.log(key, key?.length)
         if (key && key.length === 64) this.app.joinKey(key)
+      } else if (data.id === 'add-drive-form') {
+        const drivePath = data.value?.path?.trim()
+        if (drivePath) this.app.addDrive(drivePath)
       }
+    })
+
+    // --- Drives changed ---
+    this.sub({ drivesChanged: true }, () => {
+      this._renderDriveList()
     })
 
     // --- Preview ---
     this.sub({ serving: true }, (_, data) => {
       const ext = data.path?.split('.').pop().toLowerCase()
+      const filename = data.path.split('/').pop()
 
-      this.cellery.pub({ event: 'render', content: data.path, id: 'content-header' })
+      const dlLink = html`<a href="${data.dlUrl}" download="${filename}" target="_blank" class="dl-btn" title="Download">${DOWNLOAD_ICON}</a>`
+      this.cellery.pub({ event: 'render', content: html`
+        <span class="header-path">${data.path}</span>${dlLink}
+      `, id: 'content-header-text' })
 
       if (['mp4', 'mkv', 'webm', 'mov'].includes(ext)) {
         this.cellery.pub({ event: 'render', content: html`<video controls autoplay src="${data.url}"></video>`, id: 'preview' })
@@ -36,6 +46,15 @@ module.exports = class MainView extends Cell {
       } else {
         this._previewText(data)
       }
+    })
+
+    // --- Errors ---
+    this.sub({ error: true }, (_, data) => {
+      this.cellery.pub({
+        event: 'render',
+        content: html`<span class="drives-error">${data.message}</span>`,
+        id: 'drive-list'
+      })
     })
 
     // --- Ready ---
@@ -95,13 +114,52 @@ module.exports = class MainView extends Cell {
       targets: ['submit']
     })
 
+    this.cellery.pub({
+      event: 'register',
+      id: 'add-drive-form',
+      targets: ['submit']
+    })
+
     this.tree = new FileTree({
       drive: this.app.drive,
       onclick: (path, type) => {
         if (type === 'file') this.app.preview(path)
       }
     })
-    this.tree.render({ id: 'files' })
+
+    this._renderDriveList()
+  }
+
+  async _renderDriveList() {
+    const drives = await this.app.listDrives()
+
+    if (drives.length === 0) {
+      this.cellery.pub({
+        event: 'render',
+        content: html`<span class="drives-empty">No drives added</span>`,
+        id: 'drive-list'
+      })
+    } else {
+      let items = ''
+      for (const d of drives) {
+        const name = d.split('/').pop() || d
+        items += html`<div class="drive-item" title="${esc(d)}">
+          <svg class="drive-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 4h12v8H2z"/><circle cx="12" cy="8" r="1"/></svg>
+          <span class="drive-name">${esc(name)}</span>
+          <span class="drive-path">${esc(d)}</span>
+        </div>`
+      }
+      this.cellery.pub({
+        event: 'render',
+        content: items,
+        id: 'drive-list'
+      })
+    }
+
+    if (this.tree) {
+      this.cellery.pub({ event: 'render', id: 'files', clear: true })
+      this.tree.render({ id: 'files' })
+    }
   }
 
   updatePeers(count) {
@@ -155,11 +213,17 @@ function isValidUTF8(buf) {
   }
 }
 
+const DOWNLOAD_ICON = html`<svg class="dl-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2v8M4 7l4 4 4-4"/><path d="M2 12v2h12v-2"/></svg>`
+
 const LAYOUT = html`
   <div id="app">
+    <input type="checkbox" id="sidebar-toggle" />
+    <label for="sidebar-toggle" id="sidebar-overlay"></label>
+
     <div id="sidebar">
       <div id="sidebar-header">
         <div id="app-title">Ghost Drive</div>
+        <label for="sidebar-toggle" class="nav-btn sidebar-close">&times;</label>
       </div>
 
       <div id="connection">
@@ -180,11 +244,25 @@ const LAYOUT = html`
         <div id="status-label">Waiting</div>
       </div>
 
+      <div id="drives">
+        <div class="drives-header">
+          <span class="conn-label">Drives</span>
+        </div>
+        <div id="drive-list"></div>
+        <form id="add-drive-form" class="conn-input-row" style="padding: 8px 12px;">
+          <input name="path" class="conn-input" type="text" placeholder="/path/to/folder" />
+          <button class="conn-btn" type="submit">Add</button>
+        </form>
+      </div>
+
       <div id="files"></div>
     </div>
 
     <div id="content">
-      <div id="content-header"></div>
+      <div id="content-header">
+        <label for="sidebar-toggle" class="nav-btn sidebar-open">&#9776;</label>
+        <span id="content-header-text"></span>
+      </div>
       <div id="preview">
         <span class="preview-empty">Select a file</span>
       </div>
@@ -249,6 +327,9 @@ const STYLE = html`<style>
     padding: 20px 16px 16px;
     border-bottom: 1px solid var(--border);
     height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
 
   #app-title {
@@ -400,6 +481,69 @@ const STYLE = html`<style>
     color: var(--text-muted);
   }
 
+  /* --- Drives --- */
+
+  #drives {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-primary);
+  }
+
+  .drives-header {
+    padding: 10px 12px 0;
+  }
+
+  #drive-list {
+    padding: 4px 12px;
+  }
+
+  .drives-empty {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+  }
+
+  .drives-error {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: #ef4444;
+    letter-spacing: 1px;
+  }
+
+  .drive-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .drive-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--accent-dim);
+  }
+
+  .drive-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .drive-path {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
   /* --- Files --- */
 
   #files {
@@ -440,6 +584,45 @@ const STYLE = html`<style>
     display: flex;
     align-items: center;
     width: 100%;
+    gap: 10px;
+  }
+
+  #content-header-text {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .header-path {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dl-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    transition: color 0.2s, background 0.2s;
+    text-decoration: none;
+  }
+
+  .dl-btn:hover {
+    color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .dl-icon {
+    width: 16px;
+    height: 16px;
   }
 
   #preview {
@@ -502,5 +685,78 @@ const STYLE = html`<style>
   .preview-text::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 3px;
+  }
+
+  /* --- Sidebar toggle --- */
+
+  #sidebar-toggle {
+    display: none;
+  }
+
+  #sidebar-overlay {
+    display: none;
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: color 0.2s;
+  }
+
+  .nav-btn:hover {
+    color: var(--accent);
+  }
+
+  .sidebar-close,
+  .sidebar-open {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      z-index: 100;
+      width: 85vw;
+      max-width: 320px;
+      transform: translateX(-100%);
+      transition: transform 0.25s ease;
+    }
+
+    #sidebar-toggle:checked ~ #sidebar {
+      transform: translateX(0);
+    }
+
+    #sidebar-overlay {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 99;
+      background: rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    #sidebar-toggle:checked ~ #sidebar-overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .sidebar-close,
+    .sidebar-open {
+      display: block;
+    }
+
+    #content-header {
+      gap: 10px;
+    }
   }
 </style>`
