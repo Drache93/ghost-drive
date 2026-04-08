@@ -8,6 +8,7 @@ const path = require('path')
 
 const Localdrive = require('localdrive')
 const Hyperdrive = require('hyperdrive')
+const { Remote } = require('gip-remote')
 const DistributedDrive = require('distributed-drive')
 
 const serve = require('../lib/serve')
@@ -55,22 +56,29 @@ module.exports = class App extends ReadyResource {
 
     this.drive = new DistributedDrive()
 
+    // Personal cache hyperdrive — always first drive
+    this.cache = new Hyperdrive(this.store.namespace('cache'))
+    await this.cache.ready()
+    this.drive.register(this.cache)
+    console.log('cache drive:', this.cache.key.toString('hex'))
+
     this._drives = this.store.get({ name: 'drives', valueEncoding: 'json' })
     await this._drives.ready()
 
     const removed = new Set()
     for (let i = 0; i < this._drives.length; i++) {
       const entry = await this._drives.get(i)
-      const id = entry.path || entry.key
+      const id = entry.path || entry.key || entry.url
       if (entry.removed) removed.add(id)
       else removed.delete(id)
     }
     for (let i = 0; i < this._drives.length; i++) {
       const entry = await this._drives.get(i)
-      const id = entry.path || entry.key
+      const id = entry.path || entry.key || entry.url
       if (entry.removed || removed.has(id)) continue
       if (entry.type === 'local') this._registerLocal(entry.path)
       else if (entry.type === 'hyperdrive') await this._registerHyperdrive(entry.key, true)
+      else if (entry.type === 'gip-remote') await this._registerGipRemote(entry.url, true)
     }
 
     this.swarm.on('connection', (stream) => {
@@ -93,6 +101,7 @@ module.exports = class App extends ReadyResource {
         this.peers--
         console.log(`peer disconnected (${this.peers} online)`)
         if (this.view) this.view.updatePeers(this.peers)
+        if (this.view) this.view.refreshTree()
       })
     })
 
@@ -164,9 +173,45 @@ module.exports = class App extends ReadyResource {
     console.log('registered hyperdrive:', hex)
   }
 
+  async _registerGipRemote(url, noWait) {
+    if (this._driveMap.has(url)) return
+    const remote = new Remote(this.store, url)
+    await remote.ready()
+
+    // Join swarm + wait for peers before reading data
+    await this._joinTopic(remote.discoveryKey, false, noWait)
+    if (!noWait) {
+      await remote.update()
+    }
+
+    const rd = await remote.toDrive('main')
+    if (!rd) throw new Error('no main branch found')
+    await rd.ready()
+    this._driveMap.set(url, { remote, drive: rd })
+    this.drive.register(rd)
+    console.log('registered gip-remote:', url)
+  }
+
   async addDrive(input) {
     input = input.trim()
-    const isKey = /^[0-9a-f]{64}$/i.test(input) && !input.includes('/')
+    const isGipRemote = input.startsWith('git+pear://')
+    const isKey = !isGipRemote && /^[0-9a-f]{64}$/i.test(input) && !input.includes('/')
+
+    if (isGipRemote) {
+      if (this._driveMap.has(input)) return
+
+      try {
+        await this._registerGipRemote(input)
+      } catch (err) {
+        console.log('cannot add gip-remote:', input, err.message)
+        this.stream.push({ error: true, message: 'Cannot add gip-remote: ' + err.message })
+        return
+      }
+
+      await this._drives.append({ type: 'gip-remote', url: input })
+      this.stream.push({ drivesChanged: true })
+      return
+    }
 
     if (isKey) {
       if (this._driveMap.has(input)) return
@@ -211,29 +256,62 @@ module.exports = class App extends ReadyResource {
   }
 
   async removeDrive(id) {
-    const drv = this._driveMap.get(id)
-    if (!drv) return
+    const entry = this._driveMap.get(id)
+    if (!entry) return
 
-    this.drive.unregister(drv)
+    const isGip = id.startsWith('git+pear://')
+    if (isGip) {
+      this.drive.unregister(entry.drive)
+      await entry.remote.close()
+    } else {
+      this.drive.unregister(entry)
+      await entry.close()
+    }
     this._driveMap.delete(id)
-    await drv.close()
 
-    const isKey = /^[0-9a-f]{64}$/i.test(id)
-    const entry = isKey
-      ? { type: 'hyperdrive', key: id, removed: true }
-      : { type: 'local', path: id, removed: true }
+    const isKey = !isGip && /^[0-9a-f]{64}$/i.test(id)
+    const removal = isGip
+      ? { type: 'gip-remote', url: id, removed: true }
+      : isKey
+        ? { type: 'hyperdrive', key: id, removed: true }
+        : { type: 'local', path: id, removed: true }
 
-    await this._drives.append(entry)
+    await this._drives.append(removal)
     this.stream.push({ drivesChanged: true })
   }
 
   async listDrives() {
     const list = []
     for (const [id, drv] of this._driveMap) {
-      const isKey = /^[0-9a-f]{64}$/i.test(id)
-      list.push({ id, type: isKey ? 'hyperdrive' : 'local' })
+      const isGip = id.startsWith('git+pear://')
+      const isKey = !isGip && /^[0-9a-f]{64}$/i.test(id)
+      const type = isGip ? 'gip-remote' : isKey ? 'hyperdrive' : 'local'
+      list.push({ id, type })
     }
     return list
+  }
+
+  async cacheFile(filePath) {
+    const exists = await this.cache.get(filePath)
+    if (exists) {
+      console.log('already cached:', filePath)
+      return
+    }
+
+    const buf = await this.drive.get(filePath)
+    if (!buf) throw new Error('file not found: ' + filePath)
+
+    await this.cache.put(filePath, buf)
+    console.log('cached:', filePath)
+  }
+
+  async clearCache() {
+    const batch = this.cache.batch()
+    for await (const entry of this.cache.list('/')) {
+      await batch.del(entry.key)
+    }
+    await batch.flush()
+    console.log('cache cleared')
   }
 
   async preview(path) {
@@ -241,14 +319,14 @@ module.exports = class App extends ReadyResource {
     this._serve = await serve(this.drive, path)
     const base = `http://localhost:${this._serve.port}`
     const url = base + path
-    const dlUrl = base + this._serve.dlPrefix + path
     console.log('serving', url)
-    this.stream.push({ serving: true, url, dlUrl, path })
+    this.stream.push({ serving: true, url, path })
   }
 
   async _close() {
     if (this._serve) this._serve.server.close()
     if (this._joins) await this._joins.close()
+    if (this.cache) await this.cache.close()
     await this.swarm.destroy()
     await this.store.close()
   }

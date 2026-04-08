@@ -26,26 +26,38 @@ module.exports = class MainView extends Cell {
       this._renderDriveList()
     })
 
+    // --- Cache file + drive actions ---
+    this._driveIds = []
+    this.sub({ event: 'click' }, (_, { data }) => {
+      if (data.id === 'cache-btn') this._cacheCurrentFile()
+      else if (data.id === 'clear-cache-btn') this._clearCache()
+      else if (data.id?.startsWith('rm-drive-')) {
+        const idx = parseInt(data.id.replace('rm-drive-', ''), 10)
+        const driveId = this._driveIds[idx]
+        if (driveId) this.app.removeDrive(driveId)
+      }
+    })
+
     // --- Preview ---
     this.sub({ serving: true }, (_, data) => {
       const ext = data.path?.split('.').pop().toLowerCase()
-      const filename = data.path.split('/').pop()
 
-      const dlLink = html`<a
-        href="${data.dlUrl}"
-        download="${esc(filename)}"
-        class="dl-btn"
-        title="Download"
-        onclick="event.preventDefault();fetch(this.href).then(r=>r.blob()).then(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='${esc(
-          filename
-        )}';a.click();URL.revokeObjectURL(a.href)})"
-        >${DOWNLOAD_ICON}</a
-      >`
+      // Move tree to sidebar on first file click
+      if (!this._treeInSidebar) {
+        this._treeInSidebar = true
+        this.tree.containerId = 'files'
+        this._renderDriveList()
+      }
+
+      this._currentPath = data.path
+
+      const cacheBtn = html`<span id="cache-btn" class="dl-btn" title="Cache to local drive">${CACHE_ICON}</span>`
       this.cellery.pub({
         event: 'render',
-        content: html` <span class="header-path">${data.path}</span>${dlLink} `,
+        content: html` <span class="header-path">${data.path}</span>${cacheBtn} `,
         id: 'content-header-text'
       })
+      this.cellery.pub({ event: 'register', id: 'cache-btn', targets: ['click'] })
 
       if (['mp4', 'mkv', 'webm', 'mov'].includes(ext)) {
         this.cellery.pub({
@@ -133,6 +145,33 @@ module.exports = class MainView extends Cell {
     }
   }
 
+  async _cacheCurrentFile() {
+    if (!this._currentPath) return
+    try {
+      await this.app.cacheFile(this._currentPath)
+      this.cellery.pub({
+        event: 'render',
+        content: html`<span class="cache-toast">Cached</span>`,
+        id: 'cache-btn'
+      })
+    } catch (err) {
+      this.cellery.pub({
+        event: 'render',
+        content: html`<span class="cache-toast error">Failed</span>`,
+        id: 'cache-btn'
+      })
+    }
+  }
+
+  async _clearCache() {
+    try {
+      await this.app.clearCache()
+      this._renderDriveList()
+    } catch (err) {
+      console.log('clear cache error:', err.message)
+    }
+  }
+
   setup() {
     this.cellery.pub({
       event: 'render',
@@ -158,8 +197,12 @@ module.exports = class MainView extends Cell {
       targets: ['submit']
     })
 
+    this._treeInSidebar = false
+    this._currentPath = null
+
     this.tree = new FileTree({
       drive: this.app.drive,
+      id: 'preview',
       onclick: (path, type) => {
         if (type === 'file') {
           this.cellery.pub({ event: 'render', content: LOADER, id: 'preview' })
@@ -169,6 +212,7 @@ module.exports = class MainView extends Cell {
       }
     })
 
+    this.cellery.pub({ event: 'register', id: 'clear-cache-btn', targets: ['click'] })
     this._renderDriveList()
   }
 
@@ -182,17 +226,26 @@ module.exports = class MainView extends Cell {
         id: 'drive-list'
       })
     } else {
+      this._driveIds = []
       let items = ''
-      for (const d of drives) {
+      for (let i = 0; i < drives.length; i++) {
+        const d = drives[i]
+        this._driveIds.push(d.id)
+        const isGip = d.type === 'gip-remote'
         const isHD = d.type === 'hyperdrive'
-        const label = isHD
-          ? d.id.slice(0, 8) + '...' + d.id.slice(-8)
-          : d.id.split('/').pop() || d.id
-        const iconSvg = isHD ? DRIVE_ICONS.hyper : DRIVE_ICONS.local
+        const label = isGip
+          ? d.id.replace('git+pear://', '').split('/').pop() || d.id
+          : isHD
+            ? d.id.slice(0, 8) + '...' + d.id.slice(-8)
+            : d.id.split('/').pop() || d.id
+        const iconSvg = isGip ? DRIVE_ICONS.git : isHD ? DRIVE_ICONS.hyper : DRIVE_ICONS.local
+        const tag = isGip ? 'git' : isHD ? 'hyper' : 'local'
+        const rmId = `rm-drive-${i}`
         items += html`<div class="drive-item" title="${esc(d.id)}">
           ${iconSvg}
           <span class="drive-name">${esc(label)}</span>
-          <span class="drive-type">${isHD ? 'hyper' : 'local'}</span>
+          <span class="drive-type">${tag}</span>
+          <span id="${rmId}" class="drive-rm" title="Remove drive">&times;</span>
         </div>`
       }
       this.cellery.pub({
@@ -200,11 +253,15 @@ module.exports = class MainView extends Cell {
         content: items,
         id: 'drive-list'
       })
+      for (let i = 0; i < drives.length; i++) {
+        this.cellery.pub({ event: 'register', id: `rm-drive-${i}`, targets: ['click'] })
+      }
     }
 
     if (this.tree) {
-      this.cellery.pub({ event: 'render', id: 'files', clear: true })
-      this.tree.render({ id: 'files' })
+      const target = this.tree.containerId
+      this.cellery.pub({ event: 'render', id: target, clear: true })
+      this.tree.render()
     }
   }
 
@@ -259,7 +316,7 @@ function isValidUTF8(buf) {
   }
 }
 
-const DOWNLOAD_ICON = html`<svg
+const CACHE_ICON = html`<svg
   class="dl-icon"
   viewBox="0 0 16 16"
   fill="none"
@@ -292,6 +349,19 @@ const DRIVE_ICONS = {
   >
     <path d="M8 2L2 8l6 6 6-6z" />
     <circle cx="8" cy="8" r="1.5" />
+  </svg>`,
+  git: html`<svg
+    class="drive-icon"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.2"
+  >
+    <circle cx="4" cy="4" r="2" />
+    <circle cx="12" cy="12" r="2" />
+    <circle cx="12" cy="4" r="2" />
+    <path d="M4 6v2c0 2 2 4 4 4h2" />
+    <path d="M6 4h4" />
   </svg>`
 }
 
@@ -306,15 +376,18 @@ const LAYOUT = html`
         <label for="sidebar-toggle" class="nav-btn sidebar-close">&times;</label>
       </div>
 
-      <div id="connection">
-        <div class="conn-label">Your Key</div>
-        <div id="my-key" class="conn-key">&mdash;</div>
-        <div class="conn-divider"><span>or join</span></div>
-        <form class="conn-input-row" id="join-input">
-          <input name="key" class="conn-input" type="text" placeholder="Paste a key..." />
-          <button class="conn-btn" type="submit">Join</button>
-        </form>
-      </div>
+      <details id="connection">
+        <summary class="conn-label">Connection</summary>
+        <div class="conn-section">
+          <div class="conn-sublabel">Your Key</div>
+          <div id="my-key" class="conn-key">&mdash;</div>
+          <div class="conn-divider"><span>or join</span></div>
+          <form class="conn-input-row" id="join-input">
+            <input name="key" class="conn-input" type="text" placeholder="Paste a key..." />
+            <button class="conn-btn" type="submit">Join</button>
+          </form>
+        </div>
+      </details>
 
       <div id="status">
         <div id="peer-count">
@@ -324,16 +397,19 @@ const LAYOUT = html`
         <div id="status-label">Waiting</div>
       </div>
 
-      <div id="drives">
-        <div class="drives-header">
-          <span class="conn-label">Drives</span>
+      <details id="drives">
+        <summary class="conn-label">Drives</summary>
+        <div class="drives-section">
+          <div id="drive-list"></div>
+          <form id="add-drive-form" class="conn-input-row" style="padding: 8px 12px;">
+            <input name="path" class="conn-input" type="text" placeholder="Path, key, or git+pear://..." />
+            <button class="conn-btn" type="submit">Add</button>
+          </form>
+          <div class="cache-row">
+            <span id="clear-cache-btn" class="cache-clear-btn">Clear cache</span>
+          </div>
         </div>
-        <div id="drive-list"></div>
-        <form id="add-drive-form" class="conn-input-row" style="padding: 8px 12px;">
-          <input name="path" class="conn-input" type="text" placeholder="Path or hyperdrive key" />
-          <button class="conn-btn" type="submit">Add</button>
-        </form>
-      </div>
+      </details>
 
       <div id="files"></div>
     </div>
@@ -423,12 +499,42 @@ const STYLE = html`<style>
   /* --- Connection --- */
 
   #connection {
-    padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-primary);
   }
 
   .conn-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    padding: 10px 16px;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .conn-label::-webkit-details-marker { display: none; }
+
+  .conn-label::before {
+    content: '▶';
+    font-size: 8px;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+  }
+
+  details[open] > .conn-label::before {
+    transform: rotate(90deg);
+  }
+
+  .conn-section {
+    padding: 0 16px 12px;
+  }
+
+  .conn-sublabel {
     font-family: 'Share Tech Mono', monospace;
     font-size: 10px;
     text-transform: uppercase;
@@ -568,8 +674,8 @@ const STYLE = html`<style>
     background: var(--bg-primary);
   }
 
-  .drives-header {
-    padding: 10px 12px 0;
+  .drives-section {
+    padding: 0 0 4px;
   }
 
   #drive-list {
@@ -620,6 +726,25 @@ const STYLE = html`<style>
     letter-spacing: 1px;
     text-transform: uppercase;
     flex-shrink: 0;
+  }
+
+  .drive-rm {
+    flex-shrink: 0;
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+  }
+
+  .drive-item:hover .drive-rm {
+    opacity: 1;
+  }
+
+  .drive-rm:hover {
+    color: #ef4444;
   }
 
   /* --- Files --- */
@@ -705,14 +830,56 @@ const STYLE = html`<style>
     height: 16px;
   }
 
+  .cache-toast {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--success);
+    letter-spacing: 1px;
+  }
+
+  .cache-toast.error {
+    color: #ef4444;
+  }
+
+  .cache-row {
+    padding: 4px 12px 8px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .cache-clear-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .cache-clear-btn:hover {
+    color: #ef4444;
+  }
+
   #preview {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg-primary);
-    overflow: hidden;
+    overflow: auto;
     padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  #preview:has(#ft-root) {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  #preview #ft-root {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 12px 0;
   }
 
   #preview video,
@@ -858,6 +1025,10 @@ const STYLE = html`<style>
     .sidebar-close,
     .sidebar-open {
       display: block;
+    }
+
+    .drive-rm {
+      opacity: 1;
     }
 
     #content-header {
