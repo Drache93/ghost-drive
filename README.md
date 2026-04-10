@@ -18,12 +18,20 @@ Share local folders across devices over encrypted P2P connections — no servers
 ## Features
 
 - Add local drive folders to share
+- Automatic sharing of drive meta to Peers over stream. Files are not copied, they are streamed.
 - Browse files with lazy-loaded directory tree
 - Preview video, audio, images, and text files
 - Stream media over P2P connections in chunks
 - Join peers by key — persistent across restarts
 - Persistent identity via corestore keypair
 - Cross-platform: macOS desktop + Android
+- Any drive added is shared with Peers. One peer might add 10 different drives, and 2nd peer just connects to them, and caches files for later use! You don't need to know where the original file comes from, no duplicates, just transparent file access.
+
+### Supported Drives
+
+* LocalDrive - Add a path
+* HyperDrive - Add a key
+* gip-remote - Add a `git+pear://...` url
 
 ## Usage
 
@@ -47,6 +55,5 @@ Add local folders via the "Drives" section — files are only shared after expli
 This is an early experiment. Known limitations:
 
 - No encryption/whitelisting of peers yet (anyone with your key can browse)
-- No hyperdrive or git remote drive support yet - Already supported by distributed-drive
 - File type detection is extension-based
 - No file upload/write support
