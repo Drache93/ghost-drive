@@ -29,9 +29,9 @@ Share local folders across devices over encrypted P2P connections — no servers
 
 ### Supported Drives
 
-* LocalDrive - Add a path
-* HyperDrive - Add a key
-* gip-remote - Add a `git+pear://...` url
+- LocalDrive - Add a path
+- HyperDrive - Add a key
+- gip-remote - Add a `git+pear://...` url
 
 ## Usage
 
