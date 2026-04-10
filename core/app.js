@@ -282,7 +282,7 @@ module.exports = class App extends ReadyResource {
   async listDrives() {
     const list = [{ id: 'cache', type: 'cache', remote: false }]
 
-    for (const [id, drv] of this._driveMap) {
+    for (const [id] of this._driveMap) {
       const isGip = id.startsWith('git+pear://')
       const isKey = !isGip && /^[0-9a-f]{64}$/i.test(id)
       const type = isGip ? 'gip-remote' : isKey ? 'hyperdrive' : 'local'
