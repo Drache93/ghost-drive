@@ -35,7 +35,6 @@ module.exports = class App extends ReadyResource {
     this.stream = new Transform({
       async transform(msg, cb) {
         const { event, data } = JSON.parse(msg)
-        console.log('transform', event, data)
         if (event === 'click' || event === 'submit' || event === 'value') {
           this.push({ event, data })
         }
@@ -281,13 +280,19 @@ module.exports = class App extends ReadyResource {
   }
 
   async listDrives() {
-    const list = []
+    const list = [{ id: 'cache', type: 'cache', remote: false }]
+
     for (const [id, drv] of this._driveMap) {
       const isGip = id.startsWith('git+pear://')
       const isKey = !isGip && /^[0-9a-f]{64}$/i.test(id)
       const type = isGip ? 'gip-remote' : isKey ? 'hyperdrive' : 'local'
-      list.push({ id, type })
+      list.push({ id, type, remote: false })
     }
+    for (const peer of this.drive._peers) {
+      const hex = peer.stream.remotePublicKey?.toString('hex')
+      if (hex) list.push({ id: hex, type: 'peer', remote: true })
+    }
+
     return list
   }
 

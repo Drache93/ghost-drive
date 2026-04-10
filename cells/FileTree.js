@@ -13,6 +13,7 @@ module.exports = class FileTree extends Cell {
 
     this._paths = new Map()
     this._idCounter = 0
+    this._rendering = false
 
     this.sub({ event: 'click' }, (_, { data }) => {
       const hit = this._paths.get(data.id)
@@ -27,6 +28,9 @@ module.exports = class FileTree extends Cell {
   }
 
   async render() {
+    if (this._rendering) return
+
+    this._rendering = true
     this._paths.clear()
     this._idCounter = 0
 
@@ -40,6 +44,7 @@ module.exports = class FileTree extends Cell {
     if (!this.drive) return
 
     await this._loadDir(this.root, 'ft-root')
+    this._rendering = false
   }
 
   async _loadDir(prefix, parentElId) {

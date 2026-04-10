@@ -51,7 +51,9 @@ module.exports = class MainView extends Cell {
 
       this._currentPath = data.path
 
-      const cacheBtn = html`<span id="cache-btn" class="dl-btn" title="Cache to local drive">${CACHE_ICON}</span>`
+      const cacheBtn = html`<span id="cache-btn" class="dl-btn" title="Cache to local drive"
+        >${CACHE_ICON}</span
+      >`
       this.cellery.pub({
         event: 'render',
         content: html` <span class="header-path">${data.path}</span>${cacheBtn} `,
@@ -227,33 +229,78 @@ module.exports = class MainView extends Cell {
       })
     } else {
       this._driveIds = []
+      const local = drives.filter((d) => !d.remote)
+      const remote = drives.filter((d) => d.remote)
       let items = ''
-      for (let i = 0; i < drives.length; i++) {
-        const d = drives[i]
+      let rmIdx = 0
+
+      for (const d of local) {
         this._driveIds.push(d.id)
-        const isGip = d.type === 'gip-remote'
-        const isHD = d.type === 'hyperdrive'
-        const label = isGip
-          ? d.id.replace('git+pear://', '').split('/').pop() || d.id
-          : isHD
-            ? d.id.slice(0, 8) + '...' + d.id.slice(-8)
-            : d.id.split('/').pop() || d.id
-        const iconSvg = isGip ? DRIVE_ICONS.git : isHD ? DRIVE_ICONS.hyper : DRIVE_ICONS.local
-        const tag = isGip ? 'git' : isHD ? 'hyper' : 'local'
-        const rmId = `rm-drive-${i}`
+
+        let label
+        let iconSvg
+        let tag
+
+        switch (d.type) {
+          case 'gip-remote': {
+            label = d.id.replace('git+pear://', '').split('/').pop() || d.id
+            iconSvg = DRIVE_ICONS.git
+            tag = 'git'
+            break
+          }
+          case 'hyperdrive': {
+            label = d.id.slice(0, 8) + '...' + d.id.slice(-8)
+            iconSvg = DRIVE_ICONS.hyper
+            tag = 'hyper'
+            break
+          }
+          case 'cache': {
+            label = ''
+            iconSvg = DRIVE_ICONS.local
+            tag = 'cache'
+            break
+          }
+          default: {
+            label = d.id.split('/').pop() || d.id
+            iconSvg = DRIVE_ICONS.local
+            tag = 'local'
+            break
+          }
+        }
+
+        const labelHtml = label ? html`<span class="drive-name">${esc(label)}</span>` : ''
+
+        const rmId = `rm-drive-${rmIdx++}`
+        const removeHTml =
+          tag === 'cache'
+            ? ''
+            : html`<span id="${rmId}" class="drive-rm" title="Remove drive">&times;</span>`
+
         items += html`<div class="drive-item" title="${esc(d.id)}">
-          ${iconSvg}
-          <span class="drive-name">${esc(label)}</span>
+          ${iconSvg} ${labelHtml}
           <span class="drive-type">${tag}</span>
-          <span id="${rmId}" class="drive-rm" title="Remove drive">&times;</span>
+          ${removeHTml}
         </div>`
       }
+
+      if (remote.length > 0) {
+        items += html`<div class="drive-divider"><span>peers</span></div>`
+        for (const d of remote) {
+          const label = d.id.slice(0, 8) + '...' + d.id.slice(-8)
+          items += html`<div class="drive-item drive-item-remote" title="${esc(d.id)}">
+            ${DRIVE_ICONS.peer}
+            <span class="drive-name">${esc(label)}</span>
+            <span class="drive-type">peer</span>
+          </div>`
+        }
+      }
+
       this.cellery.pub({
         event: 'render',
         content: items,
         id: 'drive-list'
       })
-      for (let i = 0; i < drives.length; i++) {
+      for (let i = 0; i < local.length; i++) {
         this.cellery.pub({ event: 'register', id: `rm-drive-${i}`, targets: ['click'] })
       }
     }
@@ -280,6 +327,8 @@ module.exports = class MainView extends Cell {
       content: count > 0 ? 'Connected' : 'Waiting',
       id: 'status-label'
     })
+
+    this._renderDriveList()
   }
 
   async refreshTree() {
@@ -362,6 +411,16 @@ const DRIVE_ICONS = {
     <circle cx="12" cy="4" r="2" />
     <path d="M4 6v2c0 2 2 4 4 4h2" />
     <path d="M6 4h4" />
+  </svg>`,
+  peer: html`<svg
+    class="drive-icon"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.2"
+  >
+    <circle cx="8" cy="5" r="3" />
+    <path d="M3 14c0-3 2-5 5-5s5 2 5 5" />
   </svg>`
 }
 
@@ -402,7 +461,12 @@ const LAYOUT = html`
         <div class="drives-section">
           <div id="drive-list"></div>
           <form id="add-drive-form" class="conn-input-row" style="padding: 8px 12px;">
-            <input name="path" class="conn-input" type="text" placeholder="Path, key, or git+pear://..." />
+            <input
+              name="path"
+              class="conn-input"
+              type="text"
+              placeholder="Path, key, or git+pear://..."
+            />
             <button class="conn-btn" type="submit">Add</button>
           </form>
           <div class="cache-row">
@@ -517,7 +581,9 @@ const STYLE = html`<style>
     gap: 6px;
   }
 
-  .conn-label::-webkit-details-marker { display: none; }
+  .conn-label::-webkit-details-marker {
+    display: none;
+  }
 
   .conn-label::before {
     content: '▶';
@@ -728,6 +794,37 @@ const STYLE = html`<style>
     flex-shrink: 0;
   }
 
+  .drive-item-remote {
+    opacity: 0.6;
+  }
+
+  .drive-item-remote .drive-icon {
+    color: var(--success);
+  }
+
+  .drive-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0 2px;
+  }
+
+  .drive-divider::before,
+  .drive-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .drive-divider span {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
   .drive-rm {
     flex-shrink: 0;
     font-size: 14px;
@@ -736,7 +833,9 @@ const STYLE = html`<style>
     padding: 0 4px;
     line-height: 1;
     opacity: 0;
-    transition: opacity 0.15s, color 0.15s;
+    transition:
+      opacity 0.15s,
+      color 0.15s;
   }
 
   .drive-item:hover .drive-rm {
