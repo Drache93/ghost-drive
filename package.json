@@ -72,7 +72,7 @@
     "bare-path": "^3.0.0",
     "bare-storage": "^1.1.0",
     "cellery": "^1.4.5",
-    "cellery-html": "^1.1.10",
+    "cellery-html": "^1.1.11",
     "compact-encoding": "^2.19.2",
     "corestore": "^7.9.2",
     "distributed-drive": "^0.0.2",

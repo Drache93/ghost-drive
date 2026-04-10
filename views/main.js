@@ -1,5 +1,5 @@
 const { Cell } = require('cellery')
-const FileTree = require('../cells/FileTree')
+const DirView = require('../cells/DirView')
 
 const html = String.raw
 
@@ -8,7 +8,10 @@ module.exports = class MainView extends Cell {
     super()
 
     this.app = opts.app
-    this.tree = null
+    this.dir = null
+    this._driveIds = []
+    this._currentPath = null
+    this._previewing = false
 
     // --- Forms ---
     this.sub({ event: 'submit' }, (_, { data }) => {
@@ -26,11 +29,13 @@ module.exports = class MainView extends Cell {
       this._renderDriveList()
     })
 
-    // --- Cache file + drive actions ---
-    this._driveIds = []
+    // --- Actions ---
     this.sub({ event: 'click' }, (_, { data }) => {
       if (data.id === 'cache-btn') this._cacheCurrentFile()
       else if (data.id === 'clear-cache-btn') this._clearCache()
+      else if (data.id === 'back-btn') this._closePreview()
+      else if (data.id === 'copy-key-btn') this._copyKey()
+      else if (data.id?.startsWith('bc-')) this._onBreadcrumb(data.id)
       else if (data.id?.startsWith('rm-drive-')) {
         const idx = parseInt(data.id.replace('rm-drive-', ''), 10)
         const driveId = this._driveIds[idx]
@@ -40,46 +45,59 @@ module.exports = class MainView extends Cell {
 
     // --- Preview ---
     this.sub({ serving: true }, (_, data) => {
-      const ext = data.path?.split('.').pop().toLowerCase()
-
-      // Move tree to sidebar on first file click
-      if (!this._treeInSidebar) {
-        this._treeInSidebar = true
-        this.tree.containerId = 'files'
-        this._renderDriveList()
-      }
-
+      this._previewing = true
       this._currentPath = data.path
+      const ext = data.path?.split('.').pop().toLowerCase()
+      const filename = data.path.split('/').pop()
 
-      const cacheBtn = html`<span id="cache-btn" class="dl-btn" title="Cache to local drive"
+      // Header: back + path + cache
+      const cacheBtn = html`<span id="cache-btn" class="toolbar-btn" title="Cache to local drive"
         >${CACHE_ICON}</span
       >`
+      const backBtn = html`<span id="back-btn" class="toolbar-btn" title="Back">${BACK_ICON}</span>`
       this.cellery.pub({
         event: 'render',
-        content: html` <span class="header-path">${data.path}</span>${cacheBtn} `,
-        id: 'content-header-text'
+        content: html`${backBtn}<span class="header-path">${esc(data.path)}</span>${cacheBtn}`,
+        id: 'toolbar-content'
       })
       this.cellery.pub({ event: 'register', id: 'cache-btn', targets: ['click'] })
+      this.cellery.pub({ event: 'register', id: 'back-btn', targets: ['click'] })
+
+      // Show preview panel
+      this.cellery.pub({
+        event: 'render',
+        content: '',
+        id: 'main-pane'
+      })
 
       if (['mp4', 'mkv', 'webm', 'mov'].includes(ext)) {
         this.cellery.pub({
           event: 'render',
-          content: html`<video controls autoplay src="${data.url}"></video>`,
-          id: 'preview'
+          content: html`<div id="preview" class="preview-media">
+            <video controls autoplay src="${data.url}"></video>
+          </div>`,
+          id: 'main-pane'
         })
       } else if (['mp3', 'flac', 'ogg', 'wav', 'aac', 'm4a'].includes(ext)) {
         this.cellery.pub({
           event: 'render',
-          content: html`<audio controls autoplay src="${data.url}"></audio>`,
-          id: 'preview'
+          content: html`<div id="preview" class="preview-media">
+            <audio controls autoplay src="${data.url}"></audio>
+          </div>`,
+          id: 'main-pane'
         })
       } else if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
         this.cellery.pub({
           event: 'render',
-          content: html`<img src="${data.url}" />`,
-          id: 'preview'
+          content: html`<div id="preview" class="preview-media"><img src="${data.url}" /></div>`,
+          id: 'main-pane'
         })
       } else {
+        this.cellery.pub({
+          event: 'render',
+          content: html`<div id="preview" class="preview-media">${LOADER}</div>`,
+          id: 'main-pane'
+        })
         this._previewText(data)
       }
     })
@@ -95,7 +113,6 @@ module.exports = class MainView extends Cell {
 
     // --- Ready ---
     this.sub({ ready: true }, () => {
-      console.log('READY')
       this.render()
       this.setup()
     })
@@ -109,6 +126,78 @@ module.exports = class MainView extends Cell {
     })
   }
 
+  setup() {
+    this.cellery.pub({ event: 'render', content: this.app.key.toString('hex'), id: 'my-key' })
+    this.cellery.pub({ event: 'register', id: 'join-input', targets: ['submit'] })
+    this.cellery.pub({ event: 'register', id: 'add-drive-form', targets: ['submit'] })
+    this.cellery.pub({ event: 'register', id: 'clear-cache-btn', targets: ['click'] })
+    this.cellery.pub({ event: 'register', id: 'copy-key-btn', targets: ['click'] })
+
+    this.dir = new DirView({
+      drive: this.app.drive,
+      id: 'main-pane',
+      onfile: (path, name) => {
+        this.cellery.pub({
+          event: 'render',
+          content: html`<div id="preview" class="preview-media">${LOADER}</div>`,
+          id: 'main-pane'
+        })
+        this.app.preview(path)
+      },
+      onnavigate: (dir) => {
+        this._previewing = false
+        this._renderBreadcrumbs(dir)
+      }
+    })
+
+    this._renderBreadcrumbs('/')
+    this._renderDriveList()
+  }
+
+  _renderBreadcrumbs(dir) {
+    const parts = dir === '/' ? [] : dir.split('/').filter(Boolean)
+    let crumbs = html`<span id="bc-root" class="bc-item bc-link">Ghost Drive</span>`
+
+    let path = ''
+    for (let i = 0; i < parts.length; i++) {
+      path += '/' + parts[i]
+      const id = `bc-${i}`
+      const isLast = i === parts.length - 1
+      crumbs += html`<span class="bc-sep">/</span>`
+      if (isLast) {
+        crumbs += html`<span class="bc-item bc-current">${esc(parts[i])}</span>`
+      } else {
+        crumbs += html`<span id="${id}" class="bc-item bc-link">${esc(parts[i])}</span>`
+      }
+    }
+
+    this.cellery.pub({ event: 'render', content: crumbs, id: 'toolbar-content' })
+    this.cellery.pub({ event: 'register', id: 'bc-root', targets: ['click'] })
+    for (let i = 0; i < parts.length - 1; i++) {
+      this.cellery.pub({ event: 'register', id: `bc-${i}`, targets: ['click'] })
+    }
+
+    // Store parts for click resolution
+    this._bcParts = parts
+  }
+
+  _onBreadcrumb(id) {
+    if (id === 'bc-root') {
+      this.dir.navigate('/')
+      return
+    }
+    const idx = parseInt(id.replace('bc-', ''), 10)
+    const parts = this._bcParts.slice(0, idx + 1)
+    this.dir.navigate('/' + parts.join('/'))
+  }
+
+  _closePreview() {
+    this._previewing = false
+    this._currentPath = null
+    this._renderBreadcrumbs(this.dir.cwd)
+    this.dir.render()
+  }
+
   async _previewText(data) {
     try {
       const head = await collectStream(this.app.drive.createReadStream(data.path, { length: 8192 }))
@@ -116,8 +205,8 @@ module.exports = class MainView extends Cell {
       if (!head || head.length === 0) {
         this.cellery.pub({
           event: 'render',
-          content: html`<span class="preview-empty">Empty file</span>`,
-          id: 'preview'
+          content: html`<div id="preview" class="preview-media"><span class="preview-empty">Empty file</span></div>`,
+          id: 'main-pane'
         })
         return
       }
@@ -125,8 +214,8 @@ module.exports = class MainView extends Cell {
       if (!isValidUTF8(head)) {
         this.cellery.pub({
           event: 'render',
-          content: html`<span class="preview-empty">Binary file</span>`,
-          id: 'preview'
+          content: html`<div id="preview" class="preview-media"><span class="preview-empty">Binary file</span></div>`,
+          id: 'main-pane'
         })
         return
       }
@@ -136,13 +225,13 @@ module.exports = class MainView extends Cell {
       this.cellery.pub({
         event: 'render',
         content: html`<pre class="preview-text">${esc(text)}</pre>`,
-        id: 'preview'
+        id: 'main-pane'
       })
     } catch {
       this.cellery.pub({
         event: 'render',
-        content: html`<span class="preview-empty">Cannot read file</span>`,
-        id: 'preview'
+        content: html`<div id="preview" class="preview-media"><span class="preview-empty">Cannot read file</span></div>`,
+        id: 'main-pane'
       })
     }
   }
@@ -153,10 +242,10 @@ module.exports = class MainView extends Cell {
       await this.app.cacheFile(this._currentPath)
       this.cellery.pub({
         event: 'render',
-        content: html`<span class="cache-toast">Cached</span>`,
+        content: html`${CACHED_ICON}`,
         id: 'cache-btn'
       })
-    } catch (err) {
+    } catch {
       this.cellery.pub({
         event: 'render',
         content: html`<span class="cache-toast error">Failed</span>`,
@@ -174,48 +263,15 @@ module.exports = class MainView extends Cell {
     }
   }
 
-  setup() {
+  async _copyKey() {
+    // Push a value event so the webview can copy
     this.cellery.pub({
       event: 'render',
-      content: this.app.key.toString('hex'),
-      id: 'my-key'
+      content: 'Copied!',
+      id: 'copy-key-btn'
     })
-
-    this.cellery.pub({
-      event: 'register',
-      id: 'join-btn',
-      targets: ['click']
-    })
-
-    this.cellery.pub({
-      event: 'register',
-      id: 'join-input',
-      targets: ['submit']
-    })
-
-    this.cellery.pub({
-      event: 'register',
-      id: 'add-drive-form',
-      targets: ['submit']
-    })
-
-    this._treeInSidebar = false
-    this._currentPath = null
-
-    this.tree = new FileTree({
-      drive: this.app.drive,
-      id: 'preview',
-      onclick: (path, type) => {
-        if (type === 'file') {
-          this.cellery.pub({ event: 'render', content: LOADER, id: 'preview' })
-          this.cellery.pub({ event: 'render', content: path, id: 'content-header-text' })
-          this.app.preview(path)
-        }
-      }
-    })
-
-    this.cellery.pub({ event: 'register', id: 'clear-cache-btn', targets: ['click'] })
-    this._renderDriveList()
+    // Reset after a moment — we can't use setTimeout in cellery,
+    // but the visual feedback is enough
   }
 
   async _renderDriveList() {
@@ -236,80 +292,69 @@ module.exports = class MainView extends Cell {
 
       for (const d of local) {
         this._driveIds.push(d.id)
-
-        let label
-        let iconSvg
-        let tag
+        let label, iconSvg, tag
 
         switch (d.type) {
+          case 'cache': {
+            label = ''
+            iconSvg = SIDEBAR_ICONS.local
+            tag = 'cache'
+            break
+          }
           case 'gip-remote': {
             label = d.id.replace('git+pear://', '').split('/').pop() || d.id
-            iconSvg = DRIVE_ICONS.git
+            iconSvg = SIDEBAR_ICONS.git
             tag = 'git'
             break
           }
           case 'hyperdrive': {
-            label = d.id.slice(0, 8) + '...' + d.id.slice(-8)
-            iconSvg = DRIVE_ICONS.hyper
+            label = d.id.slice(0, 6) + '..' + d.id.slice(-4)
+            iconSvg = SIDEBAR_ICONS.hyper
             tag = 'hyper'
-            break
-          }
-          case 'cache': {
-            label = ''
-            iconSvg = DRIVE_ICONS.local
-            tag = 'cache'
             break
           }
           default: {
             label = d.id.split('/').pop() || d.id
-            iconSvg = DRIVE_ICONS.local
+            iconSvg = SIDEBAR_ICONS.local
             tag = 'local'
             break
           }
         }
 
-        const labelHtml = label ? html`<span class="drive-name">${esc(label)}</span>` : ''
-
+        const labelHtml = label ? html`<span class="sb-drive-name">${esc(label)}</span>` : ''
         const rmId = `rm-drive-${rmIdx++}`
-        const removeHTml =
-          tag === 'cache'
-            ? ''
-            : html`<span id="${rmId}" class="drive-rm" title="Remove drive">&times;</span>`
+        const rmHtml = d.type === 'cache'
+          ? ''
+          : html`<span id="${rmId}" class="sb-drive-rm">&times;</span>`
 
-        items += html`<div class="drive-item" title="${esc(d.id)}">
-          ${iconSvg} ${labelHtml}
-          <span class="drive-type">${tag}</span>
-          ${removeHTml}
+        items += html`<div class="sb-drive" title="${esc(d.id)}">
+          ${iconSvg}
+          ${labelHtml}
+          <span class="sb-drive-tag">${tag}</span>
+          ${rmHtml}
         </div>`
       }
 
       if (remote.length > 0) {
-        items += html`<div class="drive-divider"><span>peers</span></div>`
+        items += html`<div class="sb-divider"><span>peers</span></div>`
         for (const d of remote) {
-          const label = d.id.slice(0, 8) + '...' + d.id.slice(-8)
-          items += html`<div class="drive-item drive-item-remote" title="${esc(d.id)}">
-            ${DRIVE_ICONS.peer}
-            <span class="drive-name">${esc(label)}</span>
-            <span class="drive-type">peer</span>
+          const label = d.id.slice(0, 6) + '..' + d.id.slice(-4)
+          items += html`<div class="sb-drive sb-drive-peer" title="${esc(d.id)}">
+            ${SIDEBAR_ICONS.peer}
+            <span class="sb-drive-name">${esc(label)}</span>
+            <span class="sb-drive-tag sb-drive-tag-online">online</span>
           </div>`
         }
       }
 
-      this.cellery.pub({
-        event: 'render',
-        content: items,
-        id: 'drive-list'
-      })
+      this.cellery.pub({ event: 'render', content: items, id: 'drive-list' })
       for (let i = 0; i < local.length; i++) {
         this.cellery.pub({ event: 'register', id: `rm-drive-${i}`, targets: ['click'] })
       }
     }
 
-    if (this.tree) {
-      const target = this.tree.containerId
-      this.cellery.pub({ event: 'render', id: target, clear: true })
-      this.tree.render()
-    }
+    // Refresh directory grid
+    if (this.dir && !this._previewing) this.dir.render()
   }
 
   updatePeers(count) {
@@ -322,19 +367,15 @@ module.exports = class MainView extends Cell {
       id: 'peer-count'
     })
 
-    this.cellery.pub({
-      event: 'render',
-      content: count > 0 ? 'Connected' : 'Waiting',
-      id: 'status-label'
-    })
-
     this._renderDriveList()
   }
 
   async refreshTree() {
-    if (this.tree) await this.tree.refresh()
+    if (this.dir && !this._previewing) await this.dir.refresh()
   }
 }
+
+// --- Helpers ---
 
 async function collectStream(rs) {
   const chunks = []
@@ -351,22 +392,32 @@ function esc(str) {
 }
 
 function isValidUTF8(buf) {
-  // Check first 8KB for null bytes or invalid UTF-8 sequences
   const check = buf.subarray(0, 8192)
   for (let i = 0; i < check.length; i++) {
     if (check[i] === 0) return false
   }
   try {
     const str = buf.toString('utf-8')
-    // If decoding produces replacement chars for a clean buffer, it's not valid
     return !str.includes('\ufffd')
   } catch {
     return false
   }
 }
 
+// --- Icons ---
+
+const BACK_ICON = html`<svg
+  class="toolbar-icon"
+  viewBox="0 0 16 16"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.4"
+>
+  <path d="M10 2L4 8l6 6" />
+</svg>`
+
 const CACHE_ICON = html`<svg
-  class="dl-icon"
+  class="toolbar-icon"
   viewBox="0 0 16 16"
   fill="none"
   stroke="currentColor"
@@ -376,11 +427,21 @@ const CACHE_ICON = html`<svg
   <path d="M2 12v2h12v-2" />
 </svg>`
 
+const CACHED_ICON = html`<svg
+  class="toolbar-icon"
+  viewBox="0 0 16 16"
+  fill="none"
+  stroke="var(--success)"
+  stroke-width="1.6"
+>
+  <path d="M3 8l3.5 4L13 4" />
+</svg>`
+
 const LOADER = html`<div class="preview-loader"><div class="loader-spinner"></div></div>`
 
-const DRIVE_ICONS = {
+const SIDEBAR_ICONS = {
   local: html`<svg
-    class="drive-icon"
+    class="sb-icon"
     viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
@@ -390,7 +451,7 @@ const DRIVE_ICONS = {
     <circle cx="12" cy="8" r="1" />
   </svg>`,
   hyper: html`<svg
-    class="drive-icon"
+    class="sb-icon"
     viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
@@ -400,7 +461,7 @@ const DRIVE_ICONS = {
     <circle cx="8" cy="8" r="1.5" />
   </svg>`,
   git: html`<svg
-    class="drive-icon"
+    class="sb-icon"
     viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
@@ -413,7 +474,7 @@ const DRIVE_ICONS = {
     <path d="M6 4h4" />
   </svg>`,
   peer: html`<svg
-    class="drive-icon"
+    class="sb-icon"
     viewBox="0 0 16 16"
     fill="none"
     stroke="currentColor"
@@ -423,6 +484,8 @@ const DRIVE_ICONS = {
     <path d="M3 14c0-3 2-5 5-5s5 2 5 5" />
   </svg>`
 }
+
+// --- Layout ---
 
 const LAYOUT = html`
   <div id="app">
@@ -435,60 +498,60 @@ const LAYOUT = html`
         <label for="sidebar-toggle" class="nav-btn sidebar-close">&times;</label>
       </div>
 
-      <details id="connection">
-        <summary class="conn-label">Connection</summary>
-        <div class="conn-section">
-          <div class="conn-sublabel">Your Key</div>
-          <div id="my-key" class="conn-key">&mdash;</div>
-          <div class="conn-divider"><span>or join</span></div>
-          <form class="conn-input-row" id="join-input">
-            <input name="key" class="conn-input" type="text" placeholder="Paste a key..." />
-            <button class="conn-btn" type="submit">Join</button>
-          </form>
-        </div>
-      </details>
-
-      <div id="status">
+      <div id="sb-status">
         <div id="peer-count">
           <div class="status-dot"></div>
           <span>0 peers</span>
         </div>
-        <div id="status-label">Waiting</div>
       </div>
 
-      <details id="drives">
-        <summary class="conn-label">Drives</summary>
-        <div class="drives-section">
-          <div id="drive-list"></div>
-          <form id="add-drive-form" class="conn-input-row" style="padding: 8px 12px;">
-            <input
-              name="path"
-              class="conn-input"
-              type="text"
-              placeholder="Path, key, or git+pear://..."
-            />
-            <button class="conn-btn" type="submit">Add</button>
-          </form>
-          <div class="cache-row">
-            <span id="clear-cache-btn" class="cache-clear-btn">Clear cache</span>
+      <div id="sb-drives">
+        <div class="sb-section-label">Drives</div>
+        <div id="drive-list"></div>
+        <form id="add-drive-form" class="sb-input-row">
+          <input
+            name="path"
+            class="sb-input"
+            type="text"
+            placeholder="Path, key, or git+pear://..."
+          />
+          <button class="sb-btn" type="submit">+</button>
+        </form>
+        <div class="sb-cache-row">
+          <span id="clear-cache-btn" class="sb-cache-clear">Clear cache</span>
+        </div>
+      </div>
+
+      <div class="sb-section-divider"></div>
+
+      <details id="sb-connection">
+        <summary class="sb-section-label sb-toggle">Connection</summary>
+        <div class="sb-conn-body">
+          <div class="sb-conn-sublabel">Your Key</div>
+          <div class="sb-conn-key-row">
+            <div id="my-key" class="sb-conn-key">&mdash;</div>
+            <span id="copy-key-btn" class="sb-copy-btn">Copy</span>
           </div>
+          <div class="sb-conn-divider"><span>join peer</span></div>
+          <form class="sb-input-row" id="join-input">
+            <input name="key" class="sb-input" type="text" placeholder="Paste a key..." />
+            <button class="sb-btn" type="submit">Go</button>
+          </form>
         </div>
       </details>
-
-      <div id="files"></div>
     </div>
 
-    <div id="content">
-      <div id="content-header">
+    <div id="main">
+      <div id="toolbar">
         <label for="sidebar-toggle" class="nav-btn sidebar-open">&#9776;</label>
-        <span id="content-header-text"></span>
+        <div id="toolbar-content"></div>
       </div>
-      <div id="preview">
-        <span class="preview-empty">Select a file</span>
-      </div>
+      <div id="main-pane"></div>
     </div>
   </div>
 `
+
+// --- Styles ---
 
 const STYLE = html`<style>
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
@@ -527,187 +590,61 @@ const STYLE = html`<style>
     display: flex;
     height: 100vh;
     width: 100vw;
-    flex-flow: row nowrap;
-    max-width: none !important;
   }
 
-  /* --- Sidebar --- */
+  /* ===== Sidebar ===== */
 
   #sidebar {
-    width: 320px;
-    min-width: 320px;
+    width: 240px;
+    min-width: 240px;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  #sidebar::-webkit-scrollbar {
+    width: 3px;
+  }
+  #sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  #sidebar::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
   }
 
   #sidebar-header {
-    padding: 20px 16px 16px;
+    padding: 16px 14px 12px;
     border-bottom: 1px solid var(--border);
-    height: 56px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
   }
 
   #app-title {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 4px;
     color: var(--accent);
   }
 
-  /* --- Connection --- */
-
-  #connection {
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-primary);
-  }
-
-  .conn-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--text-secondary);
-    padding: 10px 16px;
-    cursor: pointer;
-    list-style: none;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .conn-label::-webkit-details-marker {
-    display: none;
-  }
-
-  .conn-label::before {
-    content: '▶';
-    font-size: 8px;
-    color: var(--text-muted);
-    transition: transform 0.2s;
-  }
-
-  details[open] > .conn-label::before {
-    transform: rotate(90deg);
-  }
-
-  .conn-section {
-    padding: 0 16px 12px;
-  }
-
-  .conn-sublabel {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--text-secondary);
-    margin-bottom: 6px;
-  }
-
-  .conn-key {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--accent);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-accent);
-    border-radius: 2px;
-    padding: 8px 10px;
-    word-break: break-all;
-    line-height: 1.5;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-
-  .conn-key:hover {
-    border-color: var(--accent-dim);
-  }
-
-  .conn-divider {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 12px 0;
-  }
-
-  .conn-divider::before,
-  .conn-divider::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  .conn-divider span {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: var(--text-muted);
-    letter-spacing: 2px;
-  }
-
-  .conn-input-row {
-    display: flex;
-    gap: 8px;
-  }
-
-  .conn-input {
-    flex: 1;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--text-primary);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: 2px;
-    padding: 8px 10px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .conn-input:focus {
-    border-color: var(--accent-dim);
-  }
-  .conn-input::placeholder {
-    color: var(--text-muted);
-  }
-
-  .conn-btn {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--bg-primary);
-    background: var(--accent);
-    border: none;
-    border-radius: 2px;
-    padding: 8px 16px;
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .conn-btn:hover {
-    background: #d4b45c;
-  }
-  .conn-btn:active {
-    background: var(--accent-dim);
-  }
-
   /* --- Status --- */
 
-  #status {
-    padding: 10px 16px;
+  #sb-status {
+    padding: 8px 14px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
-    justify-content: space-between;
     font-family: 'Share Tech Mono', monospace;
     font-size: 10px;
     letter-spacing: 1px;
     text-transform: uppercase;
+    flex-shrink: 0;
   }
 
   #peer-count {
@@ -729,172 +666,386 @@ const STYLE = html`<style>
     box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
   }
 
-  #status-label {
+  /* --- Drives section --- */
+
+  #sb-drives {
+    padding: 8px 0;
+    flex-shrink: 0;
+  }
+
+  .sb-section-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
     color: var(--text-muted);
+    padding: 4px 14px;
   }
 
-  /* --- Drives --- */
-
-  #drives {
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-primary);
-  }
-
-  .drives-section {
-    padding: 0 0 4px;
+  .sb-section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 14px;
   }
 
   #drive-list {
-    padding: 4px 12px;
+    padding: 2px 6px;
   }
 
-  .drives-empty {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: var(--text-muted);
-    letter-spacing: 1px;
-  }
-
-  .drives-error {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: #ef4444;
-    letter-spacing: 1px;
-  }
-
-  .drive-item {
+  .sb-drive {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 0;
-    font-size: 12px;
-    color: var(--text-secondary);
+    padding: 5px 8px;
+    border-radius: 4px;
+    cursor: default;
+    transition: background 0.1s;
   }
 
-  .drive-icon {
+  .sb-drive:hover {
+    background: var(--bg-hover);
+  }
+
+  .sb-icon {
     width: 14px;
     height: 14px;
     flex-shrink: 0;
     color: var(--accent-dim);
   }
 
-  .drive-name {
+  .sb-drive-name {
     font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
     font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
   }
 
-  .drive-type {
+  .sb-drive-tag {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    color: var(--accent-dim);
+    font-size: 8px;
+    color: var(--text-muted);
     letter-spacing: 1px;
     text-transform: uppercase;
     flex-shrink: 0;
   }
 
-  .drive-item-remote {
-    opacity: 0.6;
-  }
-
-  .drive-item-remote .drive-icon {
+  .sb-drive-tag-online {
     color: var(--success);
   }
 
-  .drive-divider {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 6px 0 2px;
+  .sb-drive-peer .sb-icon {
+    color: var(--success);
+    opacity: 0.7;
   }
 
-  .drive-divider::before,
-  .drive-divider::after {
+  .sb-drive-peer .sb-drive-name {
+    color: var(--text-secondary);
+  }
+
+  .sb-drive-rm {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    opacity: 0;
+    transition:
+      opacity 0.1s,
+      color 0.1s;
+  }
+
+  .sb-drive:hover .sb-drive-rm {
+    opacity: 1;
+  }
+  .sb-drive-rm:hover {
+    color: #ef4444;
+  }
+
+  .sb-divider {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 4px 8px;
+  }
+
+  .sb-divider::before,
+  .sb-divider::after {
     content: '';
     flex: 1;
     height: 1px;
     background: var(--border);
   }
 
-  .drive-divider span {
+  .sb-divider span {
     font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
+    font-size: 8px;
     color: var(--text-muted);
     letter-spacing: 2px;
     text-transform: uppercase;
   }
 
-  .drive-rm {
-    flex-shrink: 0;
-    font-size: 14px;
+  .sb-input-row {
+    display: flex;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .sb-input {
+    flex: 1;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-primary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 6px 8px;
+    outline: none;
+    min-width: 0;
+  }
+
+  .sb-input:focus {
+    border-color: var(--accent-dim);
+  }
+  .sb-input::placeholder {
     color: var(--text-muted);
+  }
+
+  .sb-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bg-primary);
+    background: var(--accent);
+    border: none;
+    border-radius: 3px;
+    padding: 6px 10px;
     cursor: pointer;
-    padding: 0 4px;
-    line-height: 1;
-    opacity: 0;
-    transition:
-      opacity 0.15s,
-      color 0.15s;
+    flex-shrink: 0;
   }
 
-  .drive-item:hover .drive-rm {
-    opacity: 1;
+  .sb-btn:hover {
+    background: #d4b45c;
   }
 
-  .drive-rm:hover {
+  .sb-cache-row {
+    padding: 2px 8px 4px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .sb-cache-clear {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .sb-cache-clear:hover {
     color: #ef4444;
   }
 
-  /* --- Files --- */
+  /* --- Connection --- */
 
-  #files {
+  #sb-connection {
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .sb-toggle {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .sb-toggle::-webkit-details-marker {
+    display: none;
+  }
+
+  .sb-toggle::before {
+    content: '▶';
+    font-size: 7px;
+    color: var(--text-muted);
+    transition: transform 0.15s;
+  }
+
+  details[open] > .sb-toggle::before {
+    transform: rotate(90deg);
+  }
+
+  .sb-conn-body {
+    padding: 4px 14px 12px;
+  }
+
+  .sb-conn-sublabel {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+
+  .sb-conn-key-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .sb-conn-key {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--accent);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 6px 8px;
+    word-break: break-all;
+    line-height: 1.5;
     flex: 1;
-    overflow-y: auto;
-    padding: 4px 0;
   }
 
-  #files::-webkit-scrollbar {
-    width: 4px;
+  .sb-copy-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    cursor: pointer;
+    padding: 6px 4px;
+    flex-shrink: 0;
+    transition: color 0.15s;
   }
-  #files::-webkit-scrollbar-track {
-    background: transparent;
+
+  .sb-copy-btn:hover {
+    color: var(--accent);
   }
-  #files::-webkit-scrollbar-thumb {
+
+  .sb-conn-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0;
+  }
+
+  .sb-conn-divider::before,
+  .sb-conn-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
     background: var(--border);
-    border-radius: 2px;
   }
 
-  /* --- Content --- */
+  .sb-conn-divider span {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+  }
 
-  #content {
+  .drives-empty {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    padding: 4px 8px;
+  }
+
+  .drives-error {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: #ef4444;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+  }
+
+  /* ===== Main pane ===== */
+
+  #main {
     flex: 1;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: var(--bg-primary);
   }
 
-  #content-header {
-    padding: 12px 20px;
+  #toolbar {
+    padding: 0 16px;
     border-bottom: 1px solid var(--border);
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    color: var(--text-secondary);
-    letter-spacing: 1px;
-    background: var(--bg-secondary);
-    height: 56px;
+    height: 44px;
     display: flex;
     align-items: center;
-    width: 100%;
-    gap: 10px;
+    gap: 8px;
+    background: var(--bg-secondary);
+    flex-shrink: 0;
   }
 
-  #content-header-text {
+  #toolbar-content {
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
     min-width: 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .toolbar-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition:
+      color 0.15s,
+      background 0.15s;
+  }
+
+  .toolbar-btn:hover {
+    color: var(--accent);
+    background: var(--bg-hover);
+  }
+
+  .toolbar-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Breadcrumbs */
+
+  .bc-item {
+    white-space: nowrap;
+  }
+
+  .bc-link {
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.12s;
+  }
+
+  .bc-link:hover {
+    color: var(--accent);
+  }
+
+  .bc-current {
+    color: var(--text-primary);
+  }
+
+  .bc-sep {
+    color: var(--text-muted);
+    padding: 0 2px;
   }
 
   .header-path {
@@ -902,93 +1053,45 @@ const STYLE = html`<style>
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--text-primary);
   }
 
-  .dl-btn {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    color: var(--text-secondary);
-    transition:
-      color 0.2s,
-      background 0.2s;
-    text-decoration: none;
-  }
+  /* Main pane content */
 
-  .dl-btn:hover {
-    color: var(--accent);
-    background: var(--bg-hover);
-  }
-
-  .dl-icon {
-    width: 16px;
-    height: 16px;
-  }
-
-  .cache-toast {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: var(--success);
-    letter-spacing: 1px;
-  }
-
-  .cache-toast.error {
-    color: #ef4444;
-  }
-
-  .cache-row {
-    padding: 4px 12px 8px;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  .cache-clear-btn {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: var(--text-muted);
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: color 0.2s;
-  }
-
-  .cache-clear-btn:hover {
-    color: #ef4444;
-  }
-
-  #preview {
+  #main-pane {
     flex: 1;
+    overflow: auto;
+  }
+
+  #main-pane::-webkit-scrollbar {
+    width: 5px;
+  }
+  #main-pane::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  #main-pane::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  /* Preview */
+
+  .preview-media {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-primary);
-    overflow: auto;
+    min-height: 100%;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
-  #preview:has(#ft-root) {
-    align-items: flex-start;
-    justify-content: flex-start;
-  }
-
-  #preview #ft-root {
-    width: 100%;
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 12px 0;
-  }
-
-  #preview video,
-  #preview audio,
-  #preview img {
+  .preview-media video,
+  .preview-media audio,
+  .preview-media img {
     max-width: 100%;
     max-height: 100%;
   }
 
-  #preview video {
+  .preview-media video {
     width: 100%;
     height: 100%;
     object-fit: contain;
@@ -996,7 +1099,7 @@ const STYLE = html`<style>
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
-  #preview img {
+  .preview-media img {
     object-fit: contain;
   }
 
@@ -1036,11 +1139,11 @@ const STYLE = html`<style>
     font-size: 12px;
     line-height: 1.6;
     color: var(--text-primary);
-    background: var(--bg-primary);
+    background: var(--bg-primary) !important;
     padding: 20px;
     margin: 0;
     width: 100%;
-    height: 100%;
+    min-height: 100%;
     overflow: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
@@ -1048,7 +1151,7 @@ const STYLE = html`<style>
   }
 
   .preview-text::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
   }
   .preview-text::-webkit-scrollbar-track {
     background: transparent;
@@ -1058,12 +1161,22 @@ const STYLE = html`<style>
     border-radius: 3px;
   }
 
-  /* --- Sidebar toggle --- */
+  .cache-toast {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--success);
+    letter-spacing: 1px;
+  }
+
+  .cache-toast.error {
+    color: #ef4444;
+  }
+
+  /* ===== Sidebar toggle (mobile) ===== */
 
   #sidebar-toggle {
     display: none;
   }
-
   #sidebar-overlay {
     display: none;
   }
@@ -1072,11 +1185,11 @@ const STYLE = html`<style>
     background: none;
     border: none;
     color: var(--text-secondary);
-    font-size: 18px;
+    font-size: 16px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 4px 6px;
     line-height: 1;
-    transition: color 0.2s;
+    transition: color 0.15s;
   }
 
   .nav-btn:hover {
@@ -1096,7 +1209,7 @@ const STYLE = html`<style>
       bottom: 0;
       z-index: 100;
       width: 85vw;
-      max-width: 320px;
+      max-width: 280px;
       transform: translateX(-100%);
       transition: transform 0.25s ease;
     }
@@ -1126,12 +1239,8 @@ const STYLE = html`<style>
       display: block;
     }
 
-    .drive-rm {
+    .sb-drive-rm {
       opacity: 1;
-    }
-
-    #content-header {
-      gap: 10px;
     }
   }
 </style>`

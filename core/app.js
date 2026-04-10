@@ -324,7 +324,6 @@ module.exports = class App extends ReadyResource {
     this._serve = await serve(this.drive, path)
     const base = `http://localhost:${this._serve.port}`
     const url = base + path
-    console.log('serving', url)
     this.stream.push({ serving: true, url, path })
   }
 
