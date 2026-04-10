@@ -11,11 +11,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install
+      - uses: holepunchto/actions/bare-base@v1
       - run: npm run lint
 
   release:
@@ -25,11 +21,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install
+      - uses: holepunchto/actions/bare-base@v1
       - run: npm run build:all
       - name: Package artifacts
         run: |
@@ -37,9 +29,7 @@ jobs:
           cd out
           tar -czf ghost-drive-${VERSION}-darwin-arm64.tar.gz darwin-arm64/GhostDrive.app
           tar -czf ghost-drive-${VERSION}-android-arm64.tar.gz android-arm64/GhostDrive.apk
-      - name: Upload release artifacts
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            out/ghost-drive-${{ github.ref_name }}-darwin-arm64.tar.gz
-            out/ghost-drive-${{ github.ref_name }}-android-arm64.tar.gz
+      - run: gh release create ${{ github.ref_name }} ghost-drive-${VERSION}-darwin-arm64.tar.gz ghost-drive-${VERSION}-android-arm64.tar.gz --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
