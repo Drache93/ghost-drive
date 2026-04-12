@@ -76,7 +76,7 @@
     "cellery-html": "^1.1.12",
     "compact-encoding": "^2.19.2",
     "corestore": "^7.9.2",
-    "distributed-drive": "^0.1.0",
+    "distributed-drive": "^0.1.1",
     "gip-remote": "^1.2.3",
     "hyperdht-address": "^1.0.1",
     "hyperdrive": "^13.3.2",

@@ -284,7 +284,8 @@ module.exports = class MainView extends Cell {
         content: html`<span class="toolbar-badge cached">cached</span>`,
         id: 'cache-btn'
       })
-    } catch {
+    } catch (e) {
+      console.log('failed to cache:', e)
       this.cellery.pub({
         event: 'render',
         content: html`<span class="cache-toast error">Failed</span>`,
