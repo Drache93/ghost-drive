@@ -4,7 +4,9 @@ const Corestore = require('corestore')
 const { Transform } = require('streamx')
 const Console = require('bare-console')
 const dir = require('bare-storage')
+const { join } = require('bare-path')
 const path = require('path')
+const HyperDHTAddress = require('hyperdht-address')
 
 const Localdrive = require('localdrive')
 const Hyperdrive = require('hyperdrive')
@@ -55,11 +57,11 @@ module.exports = class App extends ReadyResource {
 
     this.drive = new DistributedDrive()
 
-    // Personal cache hyperdrive — always first drive
-    this.cache = new Hyperdrive(this.store.namespace('cache'))
+    // Personal cache — always first drive
+    this.cache = new Localdrive(join(dir.persistent(), 'GhostDrive'))
     await this.cache.ready()
     this.drive.register(this.cache)
-    console.log('cache drive:', this.cache.key.toString('hex'))
+    console.log('cache drive:', this.cache.root)
 
     this._drives = this.store.get({ name: 'drives', valueEncoding: 'json' })
     await this._drives.ready()
@@ -110,21 +112,30 @@ module.exports = class App extends ReadyResource {
     this._joins = this.store.get({ name: 'joins', valueEncoding: 'json' })
     await this._joins.ready()
 
+    const removedJoins = new Set()
     for (let i = 0; i < this._joins.length; i++) {
       const entry = await this._joins.get(i)
-      const key = Buffer.from(entry.key, 'hex')
-      this._joinTopic(key, false, true)
+      if (entry.removed) removedJoins.add(entry.key)
+      else removedJoins.delete(entry.key)
+    }
+    for (let i = 0; i < this._joins.length; i++) {
+      const entry = await this._joins.get(i)
+      if (entry.removed || removedJoins.has(entry.key)) continue
+      const { key, nodes } = HyperDHTAddress.decode(Buffer.from(entry.key, 'hex'))
+      this._joinTopic(key, false, true, nodes)
       console.log('rejoining:', entry.key)
     }
 
     this.stream.push({ ready: true })
   }
 
-  async _joinTopic(key, server, noWait) {
+  async _joinTopic(key, server, noWait, closestNodes) {
     const hex = key.toString('hex')
     if (this._topics.has(hex)) return
 
-    const discovery = this.swarm.join(key, { server: !!server, client: !server })
+    console.time(`connecting-${hex}`)
+
+    const discovery = this.swarm.join(key, { server: !!server, client: !server, closestNodes })
     this._topics.set(hex, true)
 
     if (noWait) {
@@ -137,20 +148,36 @@ module.exports = class App extends ReadyResource {
     } else {
       await this.swarm.flush()
     }
+
+    console.timeEnd(`connecting-${hex}`)
   }
 
   async joinKey(hex) {
-    const key = Buffer.from(hex, 'hex')
-    if (key.length !== 32) return
+    const { key, nodes } = HyperDHTAddress.decode(Buffer.from(hex, 'hex'))
+    console.log('Joining', key, nodes)
 
     if (this._topics.has(hex)) {
       console.log('already joined:', hex)
       return
     }
 
+    this.stream.push({ status: 'Joining peer...' })
     await this._joins.append({ key: hex })
-    await this._joinTopic(key)
+    await this._joinTopic(key, false, false, nodes)
     console.log('joined:', hex)
+    this.stream.push({ status: 'Joined, waiting for peer...' })
+    this.stream.push({ drivesChanged: true })
+  }
+
+  async removePeer(hex) {
+    await this._joins.append({ key: hex, removed: true })
+    // Leave the topic
+    const discovery = this._topics.get(hex)
+    if (discovery) {
+      this._topics.delete(hex)
+    }
+    console.log('removed peer:', hex)
+    this.stream.push({ drivesChanged: true })
   }
 
   _registerLocal(drivePath) {
@@ -198,6 +225,7 @@ module.exports = class App extends ReadyResource {
 
     if (isGipRemote) {
       if (this._driveMap.has(input)) return
+      this.stream.push({ status: 'Adding git remote...' })
 
       try {
         await this._registerGipRemote(input)
@@ -214,6 +242,7 @@ module.exports = class App extends ReadyResource {
 
     if (isKey) {
       if (this._driveMap.has(input)) return
+      this.stream.push({ status: 'Adding hyperdrive...' })
 
       try {
         await this._registerHyperdrive(input)
@@ -288,26 +317,54 @@ module.exports = class App extends ReadyResource {
       const type = isGip ? 'gip-remote' : isKey ? 'hyperdrive' : 'local'
       list.push({ id, type, remote: false })
     }
+
+    // Build set of currently connected remote public keys
+    const onlineKeys = new Set()
     for (const peer of this.drive._peers) {
       const hex = peer.stream.remotePublicKey?.toString('hex')
-      if (hex) list.push({ id: hex, type: 'peer', remote: true })
+      if (hex) onlineKeys.add(hex)
+    }
+
+    // Show all saved joins with online/offline status, filtering removed
+    const seen = new Set()
+    const removedJoins = new Set()
+    const joinsLen = this._joins ? this._joins.length : 0
+    for (let i = 0; i < joinsLen; i++) {
+      const entry = await this._joins.get(i)
+      if (entry.removed) removedJoins.add(entry.key)
+      else removedJoins.delete(entry.key)
+    }
+    for (let i = 0; i < joinsLen; i++) {
+      const entry = await this._joins.get(i)
+      if (entry.removed || removedJoins.has(entry.key)) continue
+      if (seen.has(entry.key)) continue
+      seen.add(entry.key)
+      list.push({
+        id: entry.key,
+        type: 'peer',
+        remote: true,
+        online: onlineKeys.has(entry.key),
+        saved: true
+      })
+    }
+
+    // Show any connected peers not in saved joins (e.g. they joined us)
+    for (const hex of onlineKeys) {
+      if (!seen.has(hex)) {
+        list.push({ id: hex, type: 'peer', remote: true, online: true, saved: false })
+      }
     }
 
     return list
   }
 
   async cacheFile(filePath) {
-    const exists = await this.cache.get(filePath)
-    if (exists) {
-      console.log('already cached:', filePath)
-      return
-    }
+    const entry = await this.drive.entry(filePath)
+    if (!entry) throw new Error('file not found: ' + filePath)
 
-    const buf = await this.drive.get(filePath)
-    if (!buf) throw new Error('file not found: ' + filePath)
-
-    await this.cache.put(filePath, buf)
-    console.log('cached:', filePath)
+    const mirror = this.drive.mirror(this.cache, { prefix: filePath })
+    await mirror.done()
+    console.log('cached:', filePath, mirror.count)
   }
 
   async clearCache() {

@@ -11,6 +11,8 @@ swarm.on('connection', (conn) => {
   store.replicate(conn)
 })
 
+// test script to give us a drive to look at
+
 async function main() {
   await drive.put('/blob.txt', Buffer.from('example'))
 

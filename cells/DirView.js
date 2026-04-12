@@ -7,6 +7,7 @@ module.exports = class DirView extends Cell {
     super()
 
     this.drive = opts.drive || null
+    this.cache = opts.cache || null
     this.containerId = opts.id || 'dir-view'
     this.onfile = opts.onfile || null
     this.onnavigate = opts.onnavigate || null
@@ -46,7 +47,8 @@ module.exports = class DirView extends Cell {
 
     this.cellery.pub({
       event: 'render',
-      content: html`${STYLE}<div id="dv-grid" class="dv-grid"></div>`,
+      content: html`${STYLE}
+        <div id="dv-grid" class="dv-grid"></div>`,
       id: this.containerId
     })
 
@@ -65,7 +67,11 @@ module.exports = class DirView extends Cell {
 
     try {
       for await (const name of this.drive.readdir(this._cwd)) {
-        if (name.startsWith('.') || name === '$RECYCLE.BIN' || name === 'System Volume Information') {
+        if (
+          name.startsWith('.') ||
+          name === '$RECYCLE.BIN' ||
+          name === 'System Volume Information'
+        ) {
           continue
         }
         const fullPath = this._cwd === '/' ? '/' + name : this._cwd + '/' + name
@@ -89,17 +95,34 @@ module.exports = class DirView extends Cell {
       return
     }
 
-    const all = [...dirs.map((d) => ({ ...d, type: 'dir' })), ...files.map((f) => ({ ...f, type: 'file' }))]
+    const all = [
+      ...dirs.map((d) => ({ ...d, type: 'dir' })),
+      ...files.map((f) => ({ ...f, type: 'file' }))
+    ]
+
+    // Check which files are cached
+    const cachedSet = new Set()
+    if (this.cache) {
+      for (const f of files) {
+        try {
+          const e = await this.cache.entry(f.path)
+          if (e) cachedSet.add(f.path)
+        } catch {}
+      }
+    }
 
     let items = ''
     for (const entry of all) {
       const id = `dv-${this._idCounter++}`
       this._ids.set(id, entry)
       const iconSvg = entry.type === 'dir' ? ICONS.folder : fileIcon(entry.name)
+      const cached = cachedSet.has(entry.path)
       const cls = entry.type === 'dir' ? 'dv-item dv-item-dir' : 'dv-item dv-item-file'
+      const dot = cached ? html`<div class="dv-cached-dot" title="Cached"></div>` : ''
       items += html`<div id="${id}" class="${cls}">
         <div class="dv-item-icon">${iconSvg}</div>
         <div class="dv-item-name">${esc(entry.name)}</div>
+        ${dot}
       </div>`
     }
 
@@ -139,7 +162,10 @@ function fileIcon(name) {
   if (['mp4', 'mkv', 'avi', 'webm', 'mov'].includes(ext)) return ICONS.video
   if (['mp3', 'flac', 'ogg', 'wav', 'aac', 'm4a'].includes(ext)) return ICONS.audio
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return ICONS.image
-  if (['js', 'ts', 'mjs', 'cjs', 'json', 'yaml', 'yml', 'html', 'css', 'py', 'go', 'rs'].includes(ext)) return ICONS.code
+  if (
+    ['js', 'ts', 'mjs', 'cjs', 'json', 'yaml', 'yml', 'html', 'css', 'py', 'go', 'rs'].includes(ext)
+  )
+    return ICONS.code
   if (['md', 'txt', 'pdf', 'doc', 'docx', 'rtf'].includes(ext)) return ICONS.doc
   return ICONS.file
 }
@@ -155,6 +181,7 @@ const STYLE = html`<style>
   }
 
   .dv-item {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -207,6 +234,17 @@ const STYLE = html`<style>
 
   .dv-item:hover .dv-item-name {
     color: #fff;
+  }
+
+  .dv-cached-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent, #c8a84e);
+    opacity: 0.6;
+    position: absolute;
+    top: 6px;
+    right: 6px;
   }
 
   .dv-empty {

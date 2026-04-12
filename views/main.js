@@ -1,4 +1,6 @@
 const { Cell } = require('cellery')
+const HyperDHTAddress = require('hyperdht-address')
+
 const DirView = require('../cells/DirView')
 
 const html = String.raw
@@ -12,12 +14,13 @@ module.exports = class MainView extends Cell {
     this._driveIds = []
     this._currentPath = null
     this._previewing = false
+    this._driveListTimer = null
 
     // --- Forms ---
     this.sub({ event: 'submit' }, (_, { data }) => {
       if (data.id === 'join-input') {
         const { key } = data.value
-        if (key && key.length === 64) this.app.joinKey(key)
+        if (key && key.length >= 64) this.app.joinKey(key)
       } else if (data.id === 'add-drive-form') {
         const drivePath = data.value?.path?.trim()
         if (drivePath) this.app.addDrive(drivePath)
@@ -40,27 +43,35 @@ module.exports = class MainView extends Cell {
         const idx = parseInt(data.id.replace('rm-drive-', ''), 10)
         const driveId = this._driveIds[idx]
         if (driveId) this.app.removeDrive(driveId)
+      } else if (data.id?.startsWith('rm-peer-')) {
+        const idx = parseInt(data.id.replace('rm-peer-', ''), 10)
+        const peerId = this._peerIds[idx]
+        if (peerId) this.app.removePeer(peerId)
       }
     })
 
     // --- Preview ---
-    this.sub({ serving: true }, (_, data) => {
+    this.sub({ serving: true }, async (_, data) => {
       this._previewing = true
       this._currentPath = data.path
       const ext = data.path?.split('.').pop().toLowerCase()
       const filename = data.path.split('/').pop()
 
+      const isCached = !!(await this.app.cache.get(data.path))
+
       // Header: back + path + cache
-      const cacheBtn = html`<span id="cache-btn" class="toolbar-btn" title="Cache to local drive"
-        >${CACHE_ICON}</span
-      >`
+      const cacheBtn = isCached
+        ? html`<span class="toolbar-badge cached">cached</span>`
+        : html`<span id="cache-btn" class="toolbar-btn" title="Cache to local drive"
+            >${CACHE_ICON}</span
+          >`
       const backBtn = html`<span id="back-btn" class="toolbar-btn" title="Back">${BACK_ICON}</span>`
       this.cellery.pub({
         event: 'render',
         content: html`${backBtn}<span class="header-path">${esc(data.path)}</span>${cacheBtn}`,
         id: 'toolbar-content'
       })
-      this.cellery.pub({ event: 'register', id: 'cache-btn', targets: ['click'] })
+      if (!isCached) this.cellery.pub({ event: 'register', id: 'cache-btn', targets: ['click'] })
       this.cellery.pub({ event: 'register', id: 'back-btn', targets: ['click'] })
 
       // Show preview panel
@@ -74,7 +85,7 @@ module.exports = class MainView extends Cell {
         this.cellery.pub({
           event: 'render',
           content: html`<div id="preview" class="preview-media">
-            <video controls autoplay src="${data.url}"></video>
+            <video controls autoplay allowfullscreen src="${data.url}"></video>
           </div>`,
           id: 'main-pane'
         })
@@ -102,12 +113,21 @@ module.exports = class MainView extends Cell {
       }
     })
 
+    // --- Status messages ---
+    this.sub({ status: true }, (_, data) => {
+      this.cellery.pub({
+        event: 'render',
+        content: html`<span class="sb-status-msg">${data.status}</span>`,
+        id: 'status-msg'
+      })
+    })
+
     // --- Errors ---
     this.sub({ error: true }, (_, data) => {
       this.cellery.pub({
         event: 'render',
         content: html`<span class="drives-error">${data.message}</span>`,
-        id: 'drive-list'
+        id: 'status-msg'
       })
     })
 
@@ -127,7 +147,17 @@ module.exports = class MainView extends Cell {
   }
 
   setup() {
-    this.cellery.pub({ event: 'render', content: this.app.key.toString('hex'), id: 'my-key' })
+    const topic = HyperDHTAddress.encode(this.app.key, this.app.swarm.server.relayAddresses)
+    const hex = topic.toString('hex')
+
+    this.cellery.pub({
+      event: 'render',
+      content: html`<span
+        onclick="navigator.clipboard.writeText('${hex}').then(()=>{var s=document.getElementById('copy-key-btn');s.textContent='Copied!';setTimeout(()=>{s.textContent='Copy'},1500)})"
+        >${hex}</span
+      >`,
+      id: 'my-key'
+    })
     this.cellery.pub({ event: 'register', id: 'join-input', targets: ['submit'] })
     this.cellery.pub({ event: 'register', id: 'add-drive-form', targets: ['submit'] })
     this.cellery.pub({ event: 'register', id: 'clear-cache-btn', targets: ['click'] })
@@ -135,11 +165,15 @@ module.exports = class MainView extends Cell {
 
     this.dir = new DirView({
       drive: this.app.drive,
+      cache: this.app.cache,
       id: 'main-pane',
       onfile: (path, name) => {
         this.cellery.pub({
           event: 'render',
-          content: html`<div id="preview" class="preview-media">${LOADER}</div>`,
+          content: html`<script>
+              document.getElementById('sidebar-toggle').checked = false
+            </script>
+            <div id="preview" class="preview-media">${LOADER}</div>`,
           id: 'main-pane'
         })
         this.app.preview(path)
@@ -205,7 +239,9 @@ module.exports = class MainView extends Cell {
       if (!head || head.length === 0) {
         this.cellery.pub({
           event: 'render',
-          content: html`<div id="preview" class="preview-media"><span class="preview-empty">Empty file</span></div>`,
+          content: html`<div id="preview" class="preview-media">
+            <span class="preview-empty">Empty file</span>
+          </div>`,
           id: 'main-pane'
         })
         return
@@ -214,7 +250,9 @@ module.exports = class MainView extends Cell {
       if (!isValidUTF8(head)) {
         this.cellery.pub({
           event: 'render',
-          content: html`<div id="preview" class="preview-media"><span class="preview-empty">Binary file</span></div>`,
+          content: html`<div id="preview" class="preview-media">
+            <span class="preview-empty">Binary file</span>
+          </div>`,
           id: 'main-pane'
         })
         return
@@ -230,7 +268,9 @@ module.exports = class MainView extends Cell {
     } catch {
       this.cellery.pub({
         event: 'render',
-        content: html`<div id="preview" class="preview-media"><span class="preview-empty">Cannot read file</span></div>`,
+        content: html`<div id="preview" class="preview-media">
+          <span class="preview-empty">Cannot read file</span>
+        </div>`,
         id: 'main-pane'
       })
     }
@@ -242,7 +282,7 @@ module.exports = class MainView extends Cell {
       await this.app.cacheFile(this._currentPath)
       this.cellery.pub({
         event: 'render',
-        content: html`${CACHED_ICON}`,
+        content: html`<span class="toolbar-badge cached">cached</span>`,
         id: 'cache-btn'
       })
     } catch {
@@ -263,19 +303,28 @@ module.exports = class MainView extends Cell {
     }
   }
 
-  async _copyKey() {
-    // Push a value event so the webview can copy
+  _copyKey() {
+    // Handled by inline onclick on #my-key — this is a fallback
+    const hex = this.app.key.toString('hex')
     this.cellery.pub({
       event: 'render',
       content: 'Copied!',
       id: 'copy-key-btn'
     })
-    // Reset after a moment — we can't use setTimeout in cellery,
-    // but the visual feedback is enough
   }
 
-  async _renderDriveList() {
+  _renderDriveList() {
+    clearTimeout(this._driveListTimer)
+    this._driveListTimer = setTimeout(() => this._renderDriveListNow(), 150)
+  }
+
+  async _renderDriveListNow() {
     const drives = await this.app.listDrives()
+
+    let cacheCount = 0
+    try {
+      for await (const _ of this.app.cache.list('/')) cacheCount++
+    } catch {}
 
     if (drives.length === 0) {
       this.cellery.pub({
@@ -296,7 +345,7 @@ module.exports = class MainView extends Cell {
 
         switch (d.type) {
           case 'cache': {
-            label = ''
+            label = cacheCount > 0 ? `${cacheCount} file${cacheCount !== 1 ? 's' : ''}` : ''
             iconSvg = SIDEBAR_ICONS.local
             tag = 'cache'
             break
@@ -323,33 +372,55 @@ module.exports = class MainView extends Cell {
 
         const labelHtml = label ? html`<span class="sb-drive-name">${esc(label)}</span>` : ''
         const rmId = `rm-drive-${rmIdx++}`
-        const rmHtml = d.type === 'cache'
-          ? ''
-          : html`<span id="${rmId}" class="sb-drive-rm">&times;</span>`
+        const rmHtml =
+          d.type === 'cache'
+            ? cacheCount > 0
+              ? html`<span id="clear-cache-btn" class="sb-drive-rm" title="Clear cache"
+                  >&times;</span
+                >`
+              : ''
+            : html`<span id="${rmId}" class="sb-drive-rm">&times;</span>`
 
         items += html`<div class="sb-drive" title="${esc(d.id)}">
-          ${iconSvg}
-          ${labelHtml}
+          ${iconSvg} ${labelHtml}
           <span class="sb-drive-tag">${tag}</span>
           ${rmHtml}
         </div>`
       }
 
+      this._peerIds = []
+      let peerIdx = 0
       if (remote.length > 0) {
         items += html`<div class="sb-divider"><span>peers</span></div>`
         for (const d of remote) {
           const label = d.id.slice(0, 6) + '..' + d.id.slice(-4)
-          items += html`<div class="sb-drive sb-drive-peer" title="${esc(d.id)}">
+          const statusCls = d.online ? 'sb-drive-online' : 'sb-drive-offline'
+          const statusTag = d.online ? 'online' : 'offline'
+          const tagCls = d.online ? 'sb-drive-tag-online' : 'sb-drive-tag-offline'
+          let peerRmHtml = ''
+          if (d.saved) {
+            this._peerIds.push(d.id)
+            const rmId = `rm-peer-${peerIdx++}`
+            peerRmHtml = html`<span id="${rmId}" class="sb-drive-rm">&times;</span>`
+          }
+          items += html`<div class="sb-drive sb-drive-peer ${statusCls}" title="${esc(d.id)}">
             ${SIDEBAR_ICONS.peer}
             <span class="sb-drive-name">${esc(label)}</span>
-            <span class="sb-drive-tag sb-drive-tag-online">online</span>
+            <span class="sb-drive-tag ${tagCls}">${statusTag}</span>
+            ${peerRmHtml}
           </div>`
         }
       }
 
       this.cellery.pub({ event: 'render', content: items, id: 'drive-list' })
+      if (cacheCount > 0) {
+        this.cellery.pub({ event: 'register', id: 'clear-cache-btn', targets: ['click'] })
+      }
       for (let i = 0; i < local.length; i++) {
         this.cellery.pub({ event: 'register', id: `rm-drive-${i}`, targets: ['click'] })
+      }
+      for (let i = 0; i < peerIdx; i++) {
+        this.cellery.pub({ event: 'register', id: `rm-peer-${i}`, targets: ['click'] })
       }
     }
 
@@ -366,6 +437,18 @@ module.exports = class MainView extends Cell {
       content: `${dot}<span>${count} peer${count !== 1 ? 's' : ''}</span>`,
       id: 'peer-count'
     })
+
+    // Clear status message on peer change
+    this.cellery.pub({ event: 'render', content: '', id: 'status-msg' })
+
+    // Warn if previewing and all peers disconnected
+    if (this._previewing && count === 0) {
+      this.cellery.pub({
+        event: 'render',
+        content: html`<span class="sb-status-msg" style="color:#ef4444">Peer disconnected</span>`,
+        id: 'status-msg'
+      })
+    }
 
     this._renderDriveList()
   }
@@ -503,6 +586,7 @@ const LAYOUT = html`
           <div class="status-dot"></div>
           <span>0 peers</span>
         </div>
+        <div id="status-msg"></div>
       </div>
 
       <div id="sb-drives">
@@ -640,11 +724,29 @@ const STYLE = html`<style>
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
+    justify-content: space-between;
     font-family: 'Share Tech Mono', monospace;
     font-size: 10px;
     letter-spacing: 1px;
     text-transform: uppercase;
     flex-shrink: 0;
+    gap: 8px;
+  }
+
+  #status-msg {
+    flex-shrink: 1;
+    min-width: 0;
+    text-align: right;
+  }
+
+  .sb-status-msg {
+    color: var(--accent-dim);
+    font-size: 9px;
+  }
+
+  .drives-error {
+    color: #ef4444;
+    font-size: 9px;
   }
 
   #peer-count {
@@ -737,13 +839,26 @@ const STYLE = html`<style>
     color: var(--success);
   }
 
-  .sb-drive-peer .sb-icon {
+  .sb-drive-tag-offline {
+    color: #ef4444;
+  }
+
+  .sb-drive-online .sb-icon {
     color: var(--success);
     opacity: 0.7;
   }
 
-  .sb-drive-peer .sb-drive-name {
+  .sb-drive-offline .sb-icon {
+    color: #ef4444;
+    opacity: 0.4;
+  }
+
+  .sb-drive-online .sb-drive-name {
     color: var(--text-secondary);
+  }
+
+  .sb-drive-offline .sb-drive-name {
+    color: var(--text-muted);
   }
 
   .sb-drive-rm {
@@ -958,14 +1073,6 @@ const STYLE = html`<style>
     padding: 4px 8px;
   }
 
-  .drives-error {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    color: #ef4444;
-    letter-spacing: 1px;
-    padding: 4px 8px;
-  }
-
   /* ===== Main pane ===== */
 
   #main {
@@ -1016,6 +1123,18 @@ const STYLE = html`<style>
   .toolbar-btn:hover {
     color: var(--accent);
     background: var(--bg-hover);
+  }
+
+  .toolbar-badge.cached {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(200, 168, 78, 0.12);
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
   }
 
   .toolbar-icon {
