@@ -216,15 +216,15 @@ const STYLE = html`<style>
   }
 
   .dv-item-file .dv-item-icon svg {
-    color: var(--text-secondary, #71717a);
-    opacity: 0.6;
+    color: var(--text-secondary, #9a9aa4);
+    opacity: 0.75;
   }
 
   .dv-item-name {
     font-family: 'Rajdhani', sans-serif;
     font-size: 12px;
     font-weight: 500;
-    color: var(--text-primary, #d4d4d8);
+    color: var(--text-primary, #e4e4e8);
     text-align: center;
     width: 100%;
     overflow: hidden;
@@ -252,7 +252,7 @@ const STYLE = html`<style>
     grid-column: 1 / -1;
     font-family: 'Share Tech Mono', monospace;
     font-size: 12px;
-    color: var(--text-muted, #3f3f46);
+    color: var(--text-muted, #5a5a66);
     letter-spacing: 2px;
     text-transform: uppercase;
     text-align: center;

@@ -635,11 +635,11 @@ const STYLE = html`<style>
     --bg-tertiary: #1a1a22;
     --bg-hover: #22222e;
     --accent: #c8a84e;
-    --accent-dim: #8a7235;
+    --accent-dim: #a68c42;
     --accent-glow: rgba(200, 168, 78, 0.15);
-    --text-primary: #d4d4d8;
-    --text-secondary: #71717a;
-    --text-muted: #3f3f46;
+    --text-primary: #e4e4e8;
+    --text-secondary: #9a9aa4;
+    --text-muted: #5a5a66;
     --border: #27272e;
     --border-accent: #3d3520;
     --success: #22c55e;
@@ -676,6 +676,7 @@ const STYLE = html`<style>
     flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
+    padding-left: env(safe-area-inset-left, 0px);
   }
 
   #sidebar::-webkit-scrollbar {
@@ -691,6 +692,7 @@ const STYLE = html`<style>
 
   #sidebar-header {
     padding: 16px 14px 12px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 16px);
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
@@ -1074,8 +1076,9 @@ const STYLE = html`<style>
 
   #toolbar {
     padding: 0 16px;
+    padding-top: env(safe-area-inset-top, 0px);
     border-bottom: 1px solid var(--border);
-    height: 44px;
+    height: calc(env(safe-area-inset-top, 0px) + 44px);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1169,6 +1172,8 @@ const STYLE = html`<style>
   #main-pane {
     flex: 1;
     overflow: auto;
+    padding-right: env(safe-area-inset-right, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   #main-pane::-webkit-scrollbar {
@@ -1188,27 +1193,23 @@ const STYLE = html`<style>
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 100%;
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    height: 100%;
+    overflow: hidden;
   }
 
   .preview-media video,
-  .preview-media audio,
   .preview-media img {
     max-width: 100%;
     max-height: 100%;
+    object-fit: contain;
   }
 
   .preview-media video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
     background: #000;
-    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
-  .preview-media img {
-    object-fit: contain;
+  .preview-media audio {
+    max-width: 100%;
   }
 
   .preview-empty {
@@ -1309,7 +1310,7 @@ const STYLE = html`<style>
     display: none;
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 768px), (max-height: 500px) {
     #sidebar {
       position: fixed;
       top: 0;
