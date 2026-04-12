@@ -55,7 +55,6 @@ module.exports = class MainView extends Cell {
       this._previewing = true
       this._currentPath = data.path
       const ext = data.path?.split('.').pop().toLowerCase()
-      const filename = data.path.split('/').pop()
 
       const isCached = !!(await this.app.cache.get(data.path))
 
@@ -508,16 +507,6 @@ const CACHE_ICON = html`<svg
 >
   <path d="M8 2v8M4 7l4 4 4-4" />
   <path d="M2 12v2h12v-2" />
-</svg>`
-
-const CACHED_ICON = html`<svg
-  class="toolbar-icon"
-  viewBox="0 0 16 16"
-  fill="none"
-  stroke="var(--success)"
-  stroke-width="1.6"
->
-  <path d="M3 8l3.5 4L13 4" />
 </svg>`
 
 const LOADER = html`<div class="preview-loader"><div class="loader-spinner"></div></div>`
