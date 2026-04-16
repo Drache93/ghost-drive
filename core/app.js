@@ -44,6 +44,9 @@ module.exports = class App extends ReadyResource {
     this.pear.updater.on('updated', (e) => {
       console.log('updated!', e)
     })
+    this.pear.updater.on('error', (e) => {
+      console.log('error!', e)
+    })
 
     this.stream = new Transform({
       async transform(msg, cb) {
