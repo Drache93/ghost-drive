@@ -1,5 +1,6 @@
 {
-  "name": "GhostDrive",
+  "name": "ghost-drive",
+  "productName": "GhostDrive",
   "version": "0.0.22",
   "description": "Drive-compatible unified view across multiple peers and drives over RPC",
   "upgrade": "pear://huqgaq6hxaqaf6chz5o6qmhc6funox861p6jdohji5uzotaawgjo",
