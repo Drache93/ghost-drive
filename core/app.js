@@ -37,7 +37,7 @@ module.exports = class App extends ReadyResource {
     this._driveMap = new Map()
     this._serve = null
 
-    console.log(this.pear)
+    console.log('test', this.pear)
 
     this.pear.updater.on('updating', (e) => {
       console.log('updating!', e)
