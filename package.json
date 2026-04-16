@@ -43,6 +43,7 @@
     "build": "bare-build --out out/ghost-drive-darwin-arm64 --host darwin-arm64 --icon ghost.png --name GhostDrive --runtime bare-native/runtime app.js",
     "build:android": "bare-build --out out/android-arm64 --resources resources/android --host android-arm64 --manifest manifest.xml --identifier io.ghostdrive.app --name GhostDrive --runtime bare-native/runtime app.js",
     "package": "pear-build --darwin-arm64-app 'out/ghost-drive-darwin-arm64/GhostDrive.app' --target ./out/build --package package.json",
+    "stage": "pear stage pear://huqgaq6hxaqaf6chz5o6qmhc6funox861p6jdohji5uzotaawgjo out/build",
     "clean": "rm -rf out"
   },
   "devDependencies": {

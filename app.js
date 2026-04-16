@@ -24,7 +24,7 @@ const updates = cmd.flags.updates
 const console = new Console()
 
 const pear = getPear(pearStore, updates)
-const appCore = new App(pearStore)
+const appCore = new App(pearStore, pear)
 
 const server = new HTMLServer({
   target: { port: 0, width: 1200, height: 800, title: 'GhostDrive' },
@@ -33,7 +33,7 @@ const server = new HTMLServer({
   onerror: console.error
 })
 
-const view = new MainView({ app: appCore, pear })
+const view = new MainView({ app: appCore })
 appCore.view = view
 
 server.ready().then(async () => {

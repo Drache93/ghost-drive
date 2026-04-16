@@ -18,9 +18,10 @@ const serve = require('../lib/serve')
 const console = new Console()
 
 module.exports = class App extends ReadyResource {
-  constructor(storePath) {
+  constructor(storePath, pear) {
     super()
 
+    this.pear = pear
     this.store = new Corestore(
       storePath || path.join(dir.persistent(), '.ghost-drive', 'corestore')
     )
@@ -35,6 +36,14 @@ module.exports = class App extends ReadyResource {
     this._drives = null
     this._driveMap = new Map()
     this._serve = null
+
+    this.pear.updater.on('updating', (e) => {
+      console.log('updating!', e)
+      this.pear.updater.applyUpdate()
+    })
+    this.pear.updater.on('updated', (e) => {
+      console.log('updated!', e)
+    })
 
     this.stream = new Transform({
       async transform(msg, cb) {
