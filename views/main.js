@@ -10,11 +10,19 @@ module.exports = class MainView extends Cell {
     super()
 
     this.app = opts.app
+    this.pear = opts.pear
     this.dir = null
     this._driveIds = []
     this._currentPath = null
     this._previewing = false
     this._driveListTimer = null
+
+    this.pear.updater.on('updating', (e) => {
+      console.log('updating!', e)
+    })
+    this.pear.updater.on('updated', (e) => {
+      console.log('updated!', e)
+    })
 
     // --- Forms ---
     this.sub({ event: 'submit' }, (_, { data }) => {

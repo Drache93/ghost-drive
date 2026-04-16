@@ -18,10 +18,12 @@ const serve = require('../lib/serve')
 const console = new Console()
 
 module.exports = class App extends ReadyResource {
-  constructor() {
+  constructor(storePath) {
     super()
 
-    this.store = new Corestore(path.join(dir.persistent(), '.ghost-drive', 'corestore'))
+    this.store = new Corestore(
+      storePath || path.join(dir.persistent(), '.ghost-drive', 'corestore')
+    )
     this.swarm = new Hyperswarm()
     this.drive = null
     this.view = null
