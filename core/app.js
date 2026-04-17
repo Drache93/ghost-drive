@@ -41,7 +41,7 @@ module.exports = class App extends ReadyResource {
 
     this.pear.updater.on('updating', (e) => {
       console.log('updating!', e)
-      // this.pear.updater.applyUpdate()
+      this.pear.updater.applyUpdate()
     })
     this.pear.updater.on('updated', (e) => {
       console.log('updated!', e)
