@@ -567,7 +567,7 @@ const LAYOUT = html`
 
     <div id="sidebar">
       <div id="sidebar-header">
-        <div id="app-title">Ghost Drive</div>
+        <div id="app-title">Ghost Drive Test</div>
         <label for="sidebar-toggle" class="nav-btn sidebar-close">&times;</label>
       </div>
 
