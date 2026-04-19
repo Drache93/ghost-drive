@@ -72,7 +72,7 @@ module.exports = class App extends ReadyResource {
     this.drive = new DistributedDrive()
 
     // Personal cache — always first drive
-    this.cache = new Localdrive(join(dir.persistent(), 'GhostDrive', 'cache'))
+    this.cache = new Localdrive(join(this.pear.dir, 'cache'))
     await this.cache.ready()
     this.drive.register(this.cache)
     console.log('cache drive:', this.cache.root)
