@@ -18,13 +18,11 @@ const serve = require('../lib/serve')
 const console = new Console()
 
 module.exports = class App extends ReadyResource {
-  constructor(storePath, pear) {
+  constructor(pear) {
     super()
 
     this.pear = pear
-    this.store = new Corestore(
-      storePath || path.join(dir.persistent(), '.ghost-drive', 'corestore')
-    )
+    this.store = new Corestore(path.join(pear.dir, 'corestore'))
     this.swarm = new Hyperswarm()
     this.drive = null
     this.view = null
@@ -74,7 +72,7 @@ module.exports = class App extends ReadyResource {
     this.drive = new DistributedDrive()
 
     // Personal cache — always first drive
-    this.cache = new Localdrive(join(dir.persistent(), 'GhostDrive'))
+    this.cache = new Localdrive(join(dir.persistent(), 'GhostDrive', 'cache'))
     await this.cache.ready()
     this.drive.register(this.cache)
     console.log('cache drive:', this.cache.root)
@@ -207,7 +205,7 @@ module.exports = class App extends ReadyResource {
   async _registerHyperdrive(hex, noWait) {
     if (this._driveMap.has(hex)) return
     const key = Buffer.from(hex, 'hex')
-    const hd = new Hyperdrive(this.store, key)
+    const hd = new Hyperdrive(this.store.session(), key)
     await hd.ready()
     this._driveMap.set(hex, hd)
     this.drive.register(hd)
@@ -217,7 +215,7 @@ module.exports = class App extends ReadyResource {
 
   async _registerGipRemote(url, noWait) {
     if (this._driveMap.has(url)) return
-    const remote = new Remote(this.store, url)
+    const remote = new Remote(this.store.session(), url)
     await remote.ready()
 
     // Join swarm + wait for peers before reading data
@@ -314,13 +312,7 @@ module.exports = class App extends ReadyResource {
     this._driveMap.delete(id)
 
     const isKey = !isGip && /^[0-9a-f]{64}$/i.test(id)
-    const removal = isGip
-      ? { type: 'gip-remote', url: id, removed: true }
-      : isKey
-        ? { type: 'hyperdrive', key: id, removed: true }
-        : { type: 'local', path: id, removed: true }
 
-    await this._drives.append(removal)
     this.stream.push({ drivesChanged: true })
   }
 

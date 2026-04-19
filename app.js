@@ -24,7 +24,7 @@ const updates = cmd.flags.updates
 const console = new Console()
 
 const pear = getPear(pearStore, updates)
-const appCore = new App(pearStore, pear)
+const appCore = new App(pear)
 
 const server = new HTMLServer({
   target: { port: 0, width: 1200, height: 800, title: 'GhostDrive' },
