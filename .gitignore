@@ -4,3 +4,5 @@ out
 fixtures
 .DS_Store
 memory
+.svelte-kit
+build

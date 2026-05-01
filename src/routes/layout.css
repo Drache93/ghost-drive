@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+
+@theme {
+	--color-bg-primary: #0a0a0c;
+	--color-bg-secondary: #111116;
+	--color-bg-tertiary: #1a1a22;
+	--color-bg-hover: #22222e;
+	--color-accent: #c8a84e;
+	--color-accent-dim: #a68c42;
+	--color-accent-glow: rgba(200, 168, 78, 0.15);
+	--color-text-primary: #e4e4e8;
+	--color-text-secondary: #9a9aa4;
+	--color-text-muted: #5a5a66;
+	--color-border: #27272e;
+	--color-border-accent: #3d3520;
+	--color-success: #22c55e;
+	--color-danger: #ef4444;
+
+	--font-sans: ui-sans-serif, system-ui, -apple-system, sans-serif;
+	--font-mono: ui-monospace, 'SF Mono', Monaco, monospace;
+}
+
+html,
+body {
+	height: 100%;
+	overflow: hidden;
+}
+
+body {
+	background: var(--color-bg-primary);
+	color: var(--color-text-primary);
+}
+
+::-webkit-scrollbar {
+	width: 5px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--color-border);
+	border-radius: 3px;
+}

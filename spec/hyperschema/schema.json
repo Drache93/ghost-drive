@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "schema": [
+    {
+      "name": "session",
+      "namespace": "ghostdrive",
+      "compact": false,
+      "flagsPosition": -1,
+      "fields": [
+        {
+          "name": "id",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "name",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "icon",
+          "required": true,
+          "type": "buffer",
+          "version": 1
+        },
+        {
+          "name": "createdAt",
+          "required": true,
+          "type": "uint",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "name": "registration",
+      "namespace": "ghostdrive",
+      "compact": false,
+      "flagsPosition": -1,
+      "fields": [
+        {
+          "name": "sessionId",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "target",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "type",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "createdAt",
+          "required": true,
+          "type": "uint",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "name": "invite",
+      "namespace": "ghostdrive",
+      "compact": false,
+      "flagsPosition": 2,
+      "fields": [
+        {
+          "name": "sessionId",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "capKey",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "used",
+          "required": false,
+          "type": "bool",
+          "version": 1
+        },
+        {
+          "name": "createdAt",
+          "required": true,
+          "type": "uint",
+          "version": 1
+        }
+      ]
+    },
+    {
+      "name": "join",
+      "namespace": "ghostdrive",
+      "compact": false,
+      "flagsPosition": -1,
+      "fields": [
+        {
+          "name": "sessionId",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "peerKey",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "capKey",
+          "required": true,
+          "type": "string",
+          "version": 1
+        },
+        {
+          "name": "createdAt",
+          "required": true,
+          "type": "uint",
+          "version": 1
+        }
+      ]
+    }
+  ]
+}

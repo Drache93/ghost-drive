@@ -1,0 +1,40 @@
+<script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
+	import { invalidate } from '$app/navigation';
+
+	let { driveId, initial }: { driveId: string; initial: number } = $props();
+
+	let peers = $state(initial);
+	let es: EventSource | null = null;
+
+	onMount(() => {
+		es = new EventSource(`/drive/${driveId}/stream`);
+		es.addEventListener('peers', (e) => {
+			try {
+				const { count } = JSON.parse((e as MessageEvent).data);
+				peers = count;
+				// Refresh sidebar peer counts too.
+				invalidate('app:layout');
+			} catch {}
+		});
+	});
+
+	onDestroy(() => {
+		es?.close();
+	});
+</script>
+
+<span
+	class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider"
+	class:text-success={peers > 0}
+	class:text-text-muted={peers === 0}
+>
+	<span
+		class="block h-1.5 w-1.5 rounded-full"
+		class:bg-success={peers > 0}
+		class:bg-text-muted={peers === 0}
+		style:box-shadow={peers > 0 ? '0 0 6px rgba(34,197,94,.6)' : 'none'}
+	></span>
+	{peers}
+	{peers === 1 ? 'peer' : 'peers'}
+</span>

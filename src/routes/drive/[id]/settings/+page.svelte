@@ -1,0 +1,232 @@
+<script lang="ts">
+	import type { PageData, ActionData } from './$types';
+	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
+
+	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	let copied = $state(false);
+
+	function copy() {
+		if (!data.inviteUrl) return;
+		navigator.clipboard.writeText(data.inviteUrl).then(() => {
+			copied = true;
+			setTimeout(() => (copied = false), 1500);
+		});
+	}
+
+	function driveLabel(d: { target: string; type: string }) {
+		if (d.type === 'cache') return 'Cache';
+		if (d.type === 'hyperdrive') return `${d.target.slice(0, 6)}…${d.target.slice(-4)}`;
+		return d.target.split('/').pop() || d.target;
+	}
+</script>
+
+<header class="border-border bg-bg-secondary flex items-center gap-3 border-b px-4 py-3">
+	<a
+		href={`/drive/${data.drive.id}`}
+		class="text-text-secondary hover:text-accent rounded px-2 py-1 font-mono text-[11px] transition"
+	>
+		◀ Back
+	</a>
+	<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">
+		{data.drive.name} / Settings
+	</h2>
+</header>
+
+<section class="flex-1 overflow-auto p-6">
+	<div class="mx-auto max-w-3xl space-y-8">
+		<!-- Drives -->
+		<div>
+			<h3 class="text-text-muted mb-3 font-mono text-[10px] tracking-[2px] uppercase">Drives</h3>
+			<ul class="border-border bg-bg-secondary space-y-1 rounded-md border p-2">
+				{#each data.drives as d (d.target)}
+					<li class="group hover:bg-bg-hover flex items-center gap-3 rounded px-3 py-2 transition">
+						<span class="text-accent-dim">
+							{#if d.type === 'cache'}
+								<svg
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.2"
+									class="h-4 w-4"
+								>
+									<path d="M8 2v8M4 7l4 4 4-4M2 12v2h12v-2" />
+								</svg>
+							{:else if d.type === 'hyperdrive'}
+								<svg
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.2"
+									class="h-4 w-4"
+								>
+									<path d="M8 2L2 8l6 6 6-6z" />
+									<circle cx="8" cy="8" r="1.5" />
+								</svg>
+							{:else}
+								<svg
+									viewBox="0 0 16 16"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1.2"
+									class="h-4 w-4"
+								>
+									<path d="M2 4h12v8H2z" />
+									<circle cx="12" cy="8" r="1" />
+								</svg>
+							{/if}
+						</span>
+						<span class="flex-1 truncate text-sm">{driveLabel(d)}</span>
+						<span class="text-text-muted font-mono text-[9px] tracking-wider uppercase">
+							{d.type}
+						</span>
+						{#if d.type !== 'cache'}
+							<form method="POST" action="?/removeDrive" use:enhance>
+								<input type="hidden" name="target" value={d.target} />
+								<button
+									type="submit"
+									class="text-text-muted hover:text-danger px-1 opacity-0 transition group-hover:opacity-100"
+									title="Remove"
+								>
+									×
+								</button>
+							</form>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+
+			<form method="POST" action="?/addDrive" use:enhance class="mt-2 flex gap-2">
+				<input
+					name="target"
+					type="text"
+					placeholder="Local path or 64-char hyperdrive key"
+					class="border-border bg-bg-tertiary text-text-primary focus:border-accent-dim flex-1 rounded border px-3 py-2 font-mono text-xs outline-none"
+				/>
+				<button
+					type="submit"
+					class="bg-accent text-bg-primary rounded px-4 py-2 font-mono text-[10px] tracking-wider uppercase hover:brightness-110"
+				>
+					Add
+				</button>
+			</form>
+			{#if form?.error}
+				<p class="text-danger mt-1 font-mono text-[10px]">{form.error}</p>
+			{/if}
+		</div>
+
+		<!-- Invite -->
+		<div>
+			<h3 class="text-text-muted mb-3 font-mono text-[10px] tracking-[2px] uppercase">Invite</h3>
+			<div class="border-border bg-bg-secondary rounded-md border p-4">
+				{#if data.inviteUrl}
+					<div class="flex items-start gap-2">
+						<code
+							class="border-border bg-bg-tertiary text-accent flex-1 rounded border px-3 py-2 font-mono text-[10px] break-all"
+						>
+							{data.inviteUrl}
+						</code>
+						<button
+							type="button"
+							onclick={copy}
+							class="border-border text-text-secondary hover:border-accent-dim hover:text-accent rounded border px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+						>
+							{copied ? 'Copied' : 'Copy'}
+						</button>
+					</div>
+					<p class="text-text-muted mt-2 font-mono text-[9px] tracking-wider uppercase">
+						Single-use. Shared peer joins this drive only.
+					</p>
+				{:else}
+					<p class="text-text-muted mb-3 font-mono text-[10px] tracking-wider uppercase">
+						No active invite
+					</p>
+				{/if}
+				<form method="POST" action="?/createInvite" use:enhance class="mt-3">
+					<button
+						type="submit"
+						class="border-accent-dim text-accent hover:bg-accent hover:text-bg-primary rounded border px-4 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+					>
+						{data.inviteUrl ? 'Generate New Invite' : 'Generate Invite'}
+					</button>
+				</form>
+			</div>
+		</div>
+
+		<!-- Peers -->
+		<div>
+			<h3 class="text-text-muted mb-3 font-mono text-[10px] tracking-[2px] uppercase">Peers</h3>
+			{#if data.peers.length === 0}
+				<p
+					class="border-border bg-bg-secondary text-text-muted rounded-md border px-3 py-4 text-center font-mono text-[10px] tracking-wider uppercase"
+				>
+					No peers yet
+				</p>
+			{:else}
+				<ul class="border-border bg-bg-secondary space-y-1 rounded-md border p-2">
+					{#each data.peers as p (p.key)}
+						<li
+							class="group hover:bg-bg-hover flex items-center gap-3 rounded px-3 py-2 transition"
+						>
+							<span
+								class="block h-1.5 w-1.5 rounded-full"
+								class:bg-success={p.online}
+								class:bg-text-muted={!p.online}
+								style:box-shadow={p.online ? '0 0 6px rgba(34,197,94,.6)' : 'none'}
+							></span>
+							<span class="text-text-primary flex-1 truncate font-mono text-xs">{p.short}</span>
+							<span
+								class="font-mono text-[9px] tracking-wider uppercase"
+								class:text-success={p.online}
+								class:text-text-muted={!p.online}
+							>
+								{p.online ? 'online' : 'offline'}
+							</span>
+							<form method="POST" action="?/removePeer" use:enhance>
+								<input type="hidden" name="peerKey" value={p.key} />
+								<button
+									type="submit"
+									class="text-text-muted hover:text-danger px-1 opacity-0 transition group-hover:opacity-100"
+									title="Remove peer"
+								>
+									×
+								</button>
+							</form>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+
+		<!-- Danger zone -->
+		<div>
+			<h3 class="text-danger mb-3 font-mono text-[10px] tracking-[2px] uppercase">Danger</h3>
+			<form
+				method="POST"
+				action="?/deleteSession"
+				use:enhance={() => {
+					if (!confirm('Delete this drive session? Drives, invites and peers will be removed.')) {
+						return ({ cancel }) => cancel();
+					}
+					return async ({ update }) => {
+						await update();
+						goto('/');
+					};
+				}}
+				class="border-danger/40 bg-bg-secondary rounded-md border p-4"
+			>
+				<p class="text-text-secondary mb-3 font-mono text-[10px]">
+					Removes this drive session and all associated invites/joins. Your registered local drives
+					are not deleted.
+				</p>
+				<button
+					type="submit"
+					class="border-danger text-danger hover:bg-danger hover:text-bg-primary cursor-pointer rounded border px-4 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+				>
+					Delete Drive Session
+				</button>
+			</form>
+		</div>
+	</div>
+</section>
