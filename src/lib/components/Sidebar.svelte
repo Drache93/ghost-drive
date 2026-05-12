@@ -8,16 +8,25 @@
 		peerCount: number;
 	};
 
-	let { sessions }: { sessions: SessionInfo[] } = $props();
+	let { sessions, onClose = () => {} }: { sessions: SessionInfo[]; onClose?: () => void } =
+		$props();
 
 	const activeId = $derived(page.params?.id ?? null);
 </script>
 
-<aside class="border-border bg-bg-secondary flex w-72 flex-col border-r">
-	<header class="border-border border-b p-4">
+<aside class="border-border bg-bg-secondary flex h-full w-72 flex-col border-r py-4 sm:py-0">
+	<header class="border-border flex items-center justify-between border-b p-4">
 		<a href="/" class="block">
 			<h1 class="text-accent font-mono text-[10px] tracking-[4px] uppercase">Ghost Drive</h1>
 		</a>
+		<button
+			type="button"
+			aria-label="Close sidebar"
+			onclick={onClose}
+			class="text-text-muted hover:text-accent text-lg leading-none transition md:hidden"
+		>
+			×
+		</button>
 	</header>
 
 	<nav class="flex-1 overflow-y-auto p-2">

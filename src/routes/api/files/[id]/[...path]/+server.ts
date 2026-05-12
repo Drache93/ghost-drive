@@ -35,11 +35,37 @@ export const GET: RequestHandler = async ({ locals, params, request, url }) => {
 	if (!locals.app?.opened) await locals.app?.ready?.();
 
 	const session = locals.app.getSession(params.id);
-	if (!session) throw error(404, 'Drive not found');
+	if (!session) {
+		console.warn(
+			`[file-api] 404: session ${params.id} not found. Available: [${[...locals.app.sessions.keys()].join(', ')}]`
+		);
+		throw error(404, 'Drive not found');
+	}
 
-	const filePath = '/' + (params.path ?? '');
+	const filePath = ('/' + (params.path ?? '')).replaceAll('+', ' ');
+	console.log(
+		`[file-api] looking up entry '${filePath}' — session=${params.id}, drives=${session.drive.drives.length}, drive-types=[${session.drive.drives.map((d: any) => d.constructor?.name || 'unknown').join(', ')}]`
+	);
+
 	const entry = await session.drive.entry(filePath);
-	if (!entry) throw error(404, 'File not found');
+	if (!entry) {
+		// Extra diagnostic: try each drive individually
+		for (let i = 0; i < session.drive.drives.length; i++) {
+			const d = session.drive.drives[i];
+			try {
+				const e = await d.entry(filePath);
+				console.warn(
+					`[file-api]   drive[${i}] (${d.constructor?.name}, root=${d.root || 'n/a'}): entry=${e ? 'found' : 'null'}`
+				);
+			} catch (err: any) {
+				console.warn(`[file-api]   drive[${i}] (${d.constructor?.name}): threw ${err.message}`);
+			}
+		}
+		console.warn(
+			`[file-api] 404: entry not found for ${filePath} in session ${params.id}, drives: ${session.drive.drives.length}`
+		);
+		throw error(404, 'File not found');
+	}
 
 	const size: number | null = entry.value?.blob?.byteLength ?? null;
 	const mime = mimeFor(filePath);
@@ -55,7 +81,7 @@ export const GET: RequestHandler = async ({ locals, params, request, url }) => {
 		const m = /bytes=(\d+)-(\d*)/.exec(range);
 		if (m) {
 			start = parseInt(m[1], 10);
-			end = m[2] ? parseInt(m[2], 10) : size - 1;
+			end = m[2] ? parseInt(m[2], 10) : Math.min(start + CHUNK_SIZE - 1, size - 1);
 			partial = true;
 		}
 	}
@@ -77,19 +103,10 @@ export const GET: RequestHandler = async ({ locals, params, request, url }) => {
 	const drive = session.drive;
 	const stream = new ReadableStream<Uint8Array>({
 		async pull(controller) {
-			let offset = start;
-			try {
-				while (offset <= end) {
-					const chunkEnd = Math.min(offset + CHUNK_SIZE - 1, end);
-					const buf = await drive.read(filePath, { start: offset, end: chunkEnd });
-					if (!buf || buf.length === 0) break;
-					controller.enqueue(new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength));
-					offset += buf.length;
-				}
-				controller.close();
-			} catch (err) {
-				controller.error(err);
+			for await (const head of drive.createReadStream(filePath, { start, end: end + 1 })) {
+				controller.enqueue(new Uint8Array(head.buffer, head.byteOffset, head.byteLength));
 			}
+			controller.close();
 		}
 	});
 

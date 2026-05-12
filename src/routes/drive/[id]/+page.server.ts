@@ -5,10 +5,15 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	if (!locals.app?.opened) await locals.app?.ready?.();
 
 	const session = locals.app.getSession(params.id);
-	if (!session) throw error(404, 'Drive not found');
+	if (!session) {
+		console.warn(`[file-browser] 404: session ${params.id} not found. Available: [${[...locals.app.sessions.keys()].join(', ')}]`);
+		throw error(404, 'Drive not found');
+	}
 
 	const dirPath = url.searchParams.get('path') || '/';
 	const drive = session.drive;
+
+	console.log(`[file-browser] readdir '${dirPath}' — session=${params.id}, drives=${drive.drives.length}, drive-types=[${drive.drives.map((d: any) => d.constructor?.name || 'unknown').join(', ')}]`);
 
 	const entries: Array<{ name: string; isFolder: boolean; cached: boolean }> = [];
 	try {

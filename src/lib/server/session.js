@@ -2,16 +2,15 @@ import ReadyResource from 'ready-resource';
 import Localdrive from 'localdrive';
 import Hyperdrive from 'hyperdrive';
 import DistributedDrive from 'distributed-drive';
-import sodium from 'sodium-native';
 import path from 'path';
 import b4a from 'b4a';
 import fs from 'fs';
 
 // A DriveSession represents one "Ghost Drive" — a named, isolated unit with
-// its own DistributedDrive, peer invites, and joined peers. Multiple sessions
-// share the parent app's Corestore and Hyperswarm.
+// its own DistributedDrive. In host mode, the drive creates a new identity.
+// In guest mode, the drive joins an existing one by key.
 export default class DriveSession extends ReadyResource {
-	constructor({ app, id, name, icon }) {
+	constructor({ app, id, name, icon, key }) {
 		super();
 
 		this.app = app;
@@ -19,20 +18,26 @@ export default class DriveSession extends ReadyResource {
 		this.name = name;
 		this.icon = icon;
 
+		// If key is provided, this is a guest session joining a remote drive.
+		this._remoteKey = key || null;
+
 		this.drive = null;
 		this.cache = null;
 		this.driveMap = new Map();
-		this.connectedPeers = new Map();
+	}
+
+	get peerCount() {
+		return this.drive ? this.drive.peers : 0;
 	}
 
 	async _open() {
-		this.drive = new DistributedDrive();
-		await this.drive.ready();
-
 		const cacheDir = path.join(this.app.dir, 'sessions', this.id, 'cache');
 		this.cache = new Localdrive(cacheDir);
 		await this.cache.ready();
-		this.drive.register(this.cache);
+
+		// Load saved local/hyper drives BEFORE creating the DistributedDrive so
+		// they're available as initial drives.
+		const initialDrives = [this.cache];
 
 		const regs = await this.app.db
 			.find('@ghostdrive/registrations-by-session', {
@@ -44,9 +49,15 @@ export default class DriveSession extends ReadyResource {
 		for (const reg of regs) {
 			try {
 				if (reg.type === 'local') {
-					this._registerLocal(reg.target);
+					const local = new Localdrive(reg.target);
+					this.driveMap.set(reg.target, local);
+					initialDrives.push(local);
 				} else if (reg.type === 'hyperdrive') {
-					await this._registerHyperdrive(reg.target);
+					const key = b4a.from(reg.target, 'hex');
+					const hd = new Hyperdrive(this.app.store.session(), key);
+					await hd.ready();
+					this.driveMap.set(reg.target, hd);
+					initialDrives.push(hd);
 				}
 			} catch (err) {
 				console.warn(
@@ -55,16 +66,31 @@ export default class DriveSession extends ReadyResource {
 				);
 			}
 		}
+
+		// Create the DistributedDrive. The key distinction:
+		//   Host mode (no _remoteKey): generates a new identity via name
+		//   Guest mode (_remoteKey set): joins the host's drive by key
+		const driveOpts = {
+			drives: initialDrives,
+			key: '',
+			name: ''
+		};
+
+		if (this._remoteKey) {
+			driveOpts.key = this._remoteKey;
+		} else {
+			driveOpts.name = 'ghost-drive/' + this.id;
+		}
+
+		this.drive = new DistributedDrive(this.app.store.session(), driveOpts);
+		await this.drive.ready();
+
+		console.log(
+			`[session ${this.id}] opened — drives: ${this.drive.drives.length}, types: [${this.drive.drives.map((d) => d.constructor?.name || 'unknown').join(', ')}], key: ${b4a.toString(this.drive.key, 'hex').slice(0, 12)}...`
+		);
 	}
 
 	async _close() {
-		for (const { conn } of this.connectedPeers.values()) {
-			try {
-				conn.destroy();
-			} catch {}
-		}
-		this.connectedPeers.clear();
-
 		for (const drive of this.driveMap.values()) {
 			try {
 				await drive.close();
@@ -76,25 +102,14 @@ export default class DriveSession extends ReadyResource {
 		if (this.drive) await this.drive.close();
 	}
 
-	_registerLocal(drivePath) {
-		if (this.driveMap.has(drivePath)) return;
-		const local = new Localdrive(drivePath);
-		this.driveMap.set(drivePath, local);
-		this.drive.register(local);
-	}
-
-	async _registerHyperdrive(hex) {
-		if (this.driveMap.has(hex)) return;
-		const key = b4a.from(hex, 'hex');
-		const hd = new Hyperdrive(this.app.store.session(), key);
-		await hd.ready();
-		this.driveMap.set(hex, hd);
-		this.drive.register(hd);
-		await this.app._joinTopic(hd.discoveryKey, false, true);
-	}
+	// --- Drive registration ---
 
 	async addLocalDrive(drivePath) {
 		if (this.driveMap.has(drivePath)) return;
+
+		console.log(
+			`[session ${this.id}] addLocalDrive: '${drivePath}', current drives: ${this.drive?.drives.length}`
+		);
 
 		const test = new Localdrive(drivePath);
 		let valid = false;
@@ -119,7 +134,13 @@ export default class DriveSession extends ReadyResource {
 		});
 		await this.app.db.flush();
 
-		this._registerLocal(drivePath);
+		const local = new Localdrive(drivePath);
+		this.driveMap.set(drivePath, local);
+		this.drive.register(local);
+
+		console.log(
+			`[session ${this.id}] addLocalDrive: registered, drives now: ${this.drive.drives.length}, types: [${this.drive.drives.map((d) => d.constructor?.name || 'unknown').join(', ')}]`
+		);
 	}
 
 	async addHyperdrive(hex) {
@@ -128,7 +149,11 @@ export default class DriveSession extends ReadyResource {
 			throw new Error('Invalid hyperdrive key (expected 64-char hex)');
 		}
 
-		await this._registerHyperdrive(hex);
+		const key = b4a.from(hex, 'hex');
+		const hd = new Hyperdrive(this.app.store.session(), key);
+		await hd.ready();
+		this.driveMap.set(hex, hd);
+		this.drive.register(hd);
 
 		await this.app.db.insert('@ghostdrive/registrations', {
 			sessionId: this.id,
@@ -163,10 +188,13 @@ export default class DriveSession extends ReadyResource {
 		return list;
 	}
 
+	// --- Invites (simplified: invite = drive.key hex) ---
+
 	async createInvite() {
-		const capKey = b4a.allocUnsafe(32);
-		sodium.randombytes_buf(capKey);
-		const capKeyHex = b4a.toString(capKey, 'hex');
+		// The "invite" is now just sharing the drive's key. We still store a
+		// record so the UI can show "invites created" and mark them used once
+		// a peer actually shows up (for UX tracking only, not auth).
+		const capKeyHex = b4a.toString(this.drive.key, 'hex');
 
 		await this.app.db.insert('@ghostdrive/invites', {
 			sessionId: this.id,
@@ -176,7 +204,7 @@ export default class DriveSession extends ReadyResource {
 		});
 		await this.app.db.flush();
 
-		return { capKey, capKeyHex };
+		return { capKey: this.drive.key, capKeyHex };
 	}
 
 	async listInvites() {
@@ -205,6 +233,8 @@ export default class DriveSession extends ReadyResource {
 		return true;
 	}
 
+	// --- Joins (track which remote drives we've joined) ---
+
 	async addJoin(peerKeyHex, capKeyHex) {
 		await this.app.db.insert('@ghostdrive/joins', {
 			sessionId: this.id,
@@ -232,29 +262,7 @@ export default class DriveSession extends ReadyResource {
 			.toArray();
 	}
 
-	addPeerConnection(conn) {
-		const peerHex = b4a.toString(conn.remotePublicKey, 'hex');
-		if (this.connectedPeers.has(peerHex)) return;
-
-		const peer = this.drive.addPeer(conn);
-		this.connectedPeers.set(peerHex, { conn, peer });
-
-		conn.once('close', () => {
-			this.connectedPeers.delete(peerHex);
-			this.emit('peer-disconnected', peerHex);
-		});
-
-		this.emit('peer-connected', peerHex);
-		return peer;
-	}
-
-	isPeerOnline(peerHex) {
-		return this.connectedPeers.has(peerHex);
-	}
-
-	get peerCount() {
-		return this.connectedPeers.size;
-	}
+	// --- Utility ---
 
 	async cacheFile(filePath) {
 		const entry = await this.drive.entry(filePath);

@@ -16,18 +16,18 @@
 	const filename = $derived(data.path.split('/').pop() || data.path);
 </script>
 
-<header class="flex items-center gap-3 border-b border-border bg-bg-secondary px-4 py-3">
+<header class="border-border bg-bg-secondary flex items-center gap-3 border-b px-4 py-3">
 	<a
 		href={`/drive/${data.drive.id}?path=${encodeURIComponent(parentPath)}`}
-		class="rounded px-2 py-1 font-mono text-[11px] text-text-secondary transition hover:text-accent"
+		class="text-text-secondary hover:text-accent rounded px-2 py-1 font-mono text-[11px] transition"
 	>
 		◀ Back
 	</a>
-	<span class="flex-1 truncate font-mono text-[11px] text-text-primary">{filename}</span>
+	<span class="text-text-primary flex-1 truncate font-mono text-[11px]">{filename}</span>
 
 	{#if data.cached}
 		<span
-			class="rounded bg-accent/10 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-accent"
+			class="bg-accent/10 text-accent rounded px-2 py-1 font-mono text-[10px] tracking-wider uppercase"
 		>
 			cached
 		</span>
@@ -36,7 +36,7 @@
 			<input type="hidden" name="file" value={data.path} />
 			<button
 				type="submit"
-				class="rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-text-secondary transition hover:text-accent"
+				class="text-text-secondary hover:text-accent rounded px-2 py-1 font-mono text-[10px] tracking-wider uppercase transition"
 				title="Save to local cache"
 			>
 				⇩ Cache
@@ -46,7 +46,7 @@
 	<a
 		href={dlUrl}
 		download={filename}
-		class="rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-text-secondary transition hover:text-accent"
+		class="text-text-secondary hover:text-accent rounded px-2 py-1 font-mono text-[10px] tracking-wider uppercase transition"
 	>
 		Download
 	</a>
@@ -60,14 +60,14 @@
 	{:else if data.kind === 'image'}
 		<img src={fileUrl} alt={filename} class="max-h-full max-w-full object-contain" />
 	{:else if data.kind === 'text' && data.isEmpty}
-		<p class="font-mono text-xs uppercase tracking-wider text-text-muted">Empty file</p>
+		<p class="text-text-muted font-mono text-xs tracking-wider uppercase">Empty file</p>
 	{:else if data.kind === 'text' && data.isBinary}
-		<p class="font-mono text-xs uppercase tracking-wider text-text-muted">Binary file</p>
+		<p class="text-text-muted font-mono text-xs tracking-wider uppercase">Binary file</p>
 	{:else if data.kind === 'text' && data.textPreview != null}
 		<pre
-			class="h-full w-full overflow-auto whitespace-pre-wrap break-words rounded border border-border bg-bg-secondary p-4 font-mono text-xs leading-relaxed text-text-primary">{data.textPreview}</pre>
+			class="border-border bg-bg-secondary text-text-primary h-full w-full overflow-auto rounded border p-4 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap">{data.textPreview}</pre>
 	{:else}
-		<p class="font-mono text-xs uppercase tracking-wider text-text-muted">
+		<p class="text-text-muted font-mono text-xs tracking-wider uppercase">
 			Preview not supported — use Download
 		</p>
 	{/if}

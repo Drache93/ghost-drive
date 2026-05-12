@@ -16,6 +16,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 	let onConnected: ((hex: string) => void) | null = null;
 	let onDisconnected: ((hex: string) => void) | null = null;
+	let onDrivesChanged: (() => void) | null = null;
 
 	const stream = new ReadableStream({
 		start(controller) {
@@ -25,13 +26,16 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 
 			onConnected = () => controller.enqueue(frame('peers', { count: session.peerCount }));
 			onDisconnected = () => controller.enqueue(frame('peers', { count: session.peerCount }));
+			onDrivesChanged = () => controller.enqueue(frame('drives-changed', { at: Date.now() }));
 
 			session.on('peer-connected', onConnected);
 			session.on('peer-disconnected', onDisconnected);
+			session.on('drives-changed', onDrivesChanged);
 		},
 		cancel() {
 			if (onConnected) session.off('peer-connected', onConnected);
 			if (onDisconnected) session.off('peer-disconnected', onDisconnected);
+			if (onDrivesChanged) session.off('drives-changed', onDrivesChanged);
 		}
 	});
 

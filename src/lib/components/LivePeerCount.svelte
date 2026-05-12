@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { invalidate } from '$app/navigation';
+	import { invalidateAll } from '$app/navigation';
 
 	let { driveId, initial }: { driveId: string; initial: number } = $props();
 
@@ -13,10 +13,12 @@
 			try {
 				const { count } = JSON.parse((e as MessageEvent).data);
 				peers = count;
-				// Refresh sidebar peer counts too.
-				invalidate('app:layout');
+				// Re-run all loads so sidebar peer count + page readdir refresh.
+				invalidateAll();
 			} catch {}
 		});
+		// Peer's drives just became queryable (RPC opened) — re-run readdir.
+		es.addEventListener('drives-changed', () => invalidateAll());
 	});
 
 	onDestroy(() => {

@@ -2,10 +2,13 @@
 	import type { PageData, ActionData } from './$types';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
+	import Modal from '$lib/components/Modal.svelte';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	let copied = $state(false);
+	let confirmDelete = $state(false);
+	let deleteForm: HTMLFormElement | undefined = $state();
 
 	function copy() {
 		if (!data.inviteUrl) return;
@@ -21,6 +24,15 @@
 		return d.target.split('/').pop() || d.target;
 	}
 </script>
+
+<Modal
+	bind:open={confirmDelete}
+	title="Delete Drive"
+	message="Delete this drive session? Drives, invites and peers will be removed. Your registered local drives are not deleted."
+	confirmLabel="Delete"
+	danger
+	onConfirm={() => deleteForm?.requestSubmit()}
+/>
 
 <header class="border-border bg-bg-secondary flex items-center gap-3 border-b px-4 py-3">
 	<a
@@ -120,37 +132,23 @@
 		<div>
 			<h3 class="text-text-muted mb-3 font-mono text-[10px] tracking-[2px] uppercase">Invite</h3>
 			<div class="border-border bg-bg-secondary rounded-md border p-4">
-				{#if data.inviteUrl}
-					<div class="flex items-start gap-2">
-						<code
-							class="border-border bg-bg-tertiary text-accent flex-1 rounded border px-3 py-2 font-mono text-[10px] break-all"
-						>
-							{data.inviteUrl}
-						</code>
-						<button
-							type="button"
-							onclick={copy}
-							class="border-border text-text-secondary hover:border-accent-dim hover:text-accent rounded border px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
-						>
-							{copied ? 'Copied' : 'Copy'}
-						</button>
-					</div>
-					<p class="text-text-muted mt-2 font-mono text-[9px] tracking-wider uppercase">
-						Single-use. Shared peer joins this drive only.
-					</p>
-				{:else}
-					<p class="text-text-muted mb-3 font-mono text-[10px] tracking-wider uppercase">
-						No active invite
-					</p>
-				{/if}
-				<form method="POST" action="?/createInvite" use:enhance class="mt-3">
-					<button
-						type="submit"
-						class="border-accent-dim text-accent hover:bg-accent hover:text-bg-primary rounded border px-4 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+				<div class="flex items-start gap-2">
+					<code
+						class="border-border bg-bg-tertiary text-accent flex-1 rounded border px-3 py-2 font-mono text-[10px] break-all"
 					>
-						{data.inviteUrl ? 'Generate New Invite' : 'Generate Invite'}
+						{data.inviteUrl}
+					</code>
+					<button
+						type="button"
+						onclick={copy}
+						class="border-border text-text-secondary hover:border-accent-dim hover:text-accent rounded border px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+					>
+						{copied ? 'Copied' : 'Copy'}
 					</button>
-				</form>
+				</div>
+				<p class="text-text-muted mt-2 font-mono text-[9px] tracking-wider uppercase">
+					Share this link to let peers join this drive.
+				</p>
 			</div>
 		</div>
 
@@ -167,32 +165,16 @@
 				<ul class="border-border bg-bg-secondary space-y-1 rounded-md border p-2">
 					{#each data.peers as p (p.key)}
 						<li
-							class="group hover:bg-bg-hover flex items-center gap-3 rounded px-3 py-2 transition"
+							class="hover:bg-bg-hover flex items-center gap-3 rounded px-3 py-2 transition"
 						>
 							<span
-								class="block h-1.5 w-1.5 rounded-full"
-								class:bg-success={p.online}
-								class:bg-text-muted={!p.online}
-								style:box-shadow={p.online ? '0 0 6px rgba(34,197,94,.6)' : 'none'}
+								class="bg-success block h-1.5 w-1.5 rounded-full"
+								style:box-shadow="0 0 6px rgba(34,197,94,.6)"
 							></span>
 							<span class="text-text-primary flex-1 truncate font-mono text-xs">{p.short}</span>
-							<span
-								class="font-mono text-[9px] tracking-wider uppercase"
-								class:text-success={p.online}
-								class:text-text-muted={!p.online}
-							>
-								{p.online ? 'online' : 'offline'}
+							<span class="text-success font-mono text-[9px] tracking-wider uppercase">
+								online
 							</span>
-							<form method="POST" action="?/removePeer" use:enhance>
-								<input type="hidden" name="peerKey" value={p.key} />
-								<button
-									type="submit"
-									class="text-text-muted hover:text-danger px-1 opacity-0 transition group-hover:opacity-100"
-									title="Remove peer"
-								>
-									×
-								</button>
-							</form>
 						</li>
 					{/each}
 				</ul>
@@ -203,16 +185,12 @@
 		<div>
 			<h3 class="text-danger mb-3 font-mono text-[10px] tracking-[2px] uppercase">Danger</h3>
 			<form
+				bind:this={deleteForm}
 				method="POST"
 				action="?/deleteSession"
-				use:enhance={() => {
-					if (!confirm('Delete this drive session? Drives, invites and peers will be removed.')) {
-						return ({ cancel }) => cancel();
-					}
-					return async ({ update }) => {
-						await update();
-						goto('/');
-					};
+				use:enhance={() => async ({ update }) => {
+					await update();
+					goto('/');
 				}}
 				class="border-danger/40 bg-bg-secondary rounded-md border p-4"
 			>
@@ -221,7 +199,8 @@
 					are not deleted.
 				</p>
 				<button
-					type="submit"
+					type="button"
+					onclick={() => (confirmDelete = true)}
 					class="border-danger text-danger hover:bg-danger hover:text-bg-primary cursor-pointer rounded border px-4 py-2 font-mono text-[10px] tracking-wider uppercase transition"
 				>
 					Delete Drive Session
