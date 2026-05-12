@@ -30,6 +30,10 @@ export default class DriveSession extends ReadyResource {
 		return this.drive ? this.drive.peers : 0;
 	}
 
+	get isGuest() {
+		return !!this._remoteKey;
+	}
+
 	async _open() {
 		const cacheDir = path.join(this.app.dir, 'sessions', this.id, 'cache');
 		this.cache = new Localdrive(cacheDir);
@@ -84,6 +88,16 @@ export default class DriveSession extends ReadyResource {
 
 		this.drive = new DistributedDrive(this.app.store.session(), driveOpts);
 		await this.drive.ready();
+
+		this.drive.on('connected', () => {
+			console.log(`[session ${this.id}] connected`);
+			this.emit('peer-connected');
+		});
+
+		this.drive.on('disconnected', () => {
+			console.log(`[session ${this.id}] disconnected`);
+			this.emit('peer-disconnected');
+		});
 
 		console.log(
 			`[session ${this.id}] opened — drives: ${this.drive.drives.length}, types: [${this.drive.drives.map((d) => d.constructor?.name || 'unknown').join(', ')}], key: ${b4a.toString(this.drive.key, 'hex').slice(0, 12)}...`

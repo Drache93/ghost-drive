@@ -44,7 +44,9 @@
 		role="dialog"
 		aria-modal="true"
 	>
-		<div class="border-border bg-bg-secondary mx-4 w-full max-w-md rounded-lg border p-6 shadow-2xl">
+		<div
+			class="border-border bg-bg-secondary mx-4 w-full max-w-md rounded-lg border p-6 shadow-2xl"
+		>
 			{#if title}
 				<h3 class="text-accent mb-2 font-mono text-xs tracking-[3px] uppercase">{title}</h3>
 			{/if}

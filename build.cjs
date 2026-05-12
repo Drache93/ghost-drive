@@ -16,7 +16,8 @@ ns.register({
 		{ name: 'name', type: 'string', required: true },
 		{ name: 'icon', type: 'buffer', required: true }, // raw image bytes, rendered as base64 data URI
 		{ name: 'createdAt', type: 'uint', required: true },
-		{ name: 'remoteKey', type: 'string' } // hex key of remote drive (guest sessions only)
+		{ name: 'remoteKey', type: 'string' }, // hex key of remote drive (guest sessions only)
+		{ name: 'lastOpened', type: 'uint' }
 	]
 });
 

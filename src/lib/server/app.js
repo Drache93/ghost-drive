@@ -54,9 +54,7 @@ export default class GhostDriveApp extends ReadyResource {
 		});
 
 		// Restore saved sessions.
-		const sessions = await this.db
-			.find('@ghostdrive/sessions', { gte: {}, lte: {} })
-			.toArray();
+		const sessions = await this.db.find('@ghostdrive/sessions', { gte: {}, lte: {} }).toArray();
 		for (const meta of sessions) {
 			const session = new DriveSession({
 				app: this,
@@ -99,6 +97,14 @@ export default class GhostDriveApp extends ReadyResource {
 		await session.ready();
 		this.sessions.set(id, session);
 		return session;
+	}
+
+	async updateSession(id) {
+		await this.db.update('@ghostdrive/sessions', {
+			id: id,
+			lastOpened: Date.now()
+		});
+		await this.db.flush();
 	}
 
 	async removeSession(id) {
@@ -203,7 +209,8 @@ export default class GhostDriveApp extends ReadyResource {
 			name: sessionName,
 			icon: b4a.alloc(0),
 			createdAt: Date.now(),
-			remoteKey: keyHex
+			remoteKey: keyHex,
+			lastOpened: Date.now()
 		});
 		await this.db.flush();
 

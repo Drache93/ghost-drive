@@ -6,14 +6,20 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
 	const session = locals.app.getSession(params.id);
 	if (!session) {
-		console.warn(`[file-browser] 404: session ${params.id} not found. Available: [${[...locals.app.sessions.keys()].join(', ')}]`);
+		console.warn(
+			`[file-browser] 404: session ${params.id} not found. Available: [${[...locals.app.sessions.keys()].join(', ')}]`
+		);
 		throw error(404, 'Drive not found');
 	}
+
+	locals.app.updateSession(params.id).catch(() => {});
 
 	const dirPath = url.searchParams.get('path') || '/';
 	const drive = session.drive;
 
-	console.log(`[file-browser] readdir '${dirPath}' — session=${params.id}, drives=${drive.drives.length}, drive-types=[${drive.drives.map((d: any) => d.constructor?.name || 'unknown').join(', ')}]`);
+	console.log(
+		`[file-browser] readdir '${dirPath}' — session=${params.id}, drives=${drive.drives.length}, drive-types=[${drive.drives.map((d: any) => d.constructor?.name || 'unknown').join(', ')}]`
+	);
 
 	const entries: Array<{ name: string; isFolder: boolean; cached: boolean }> = [];
 	try {
@@ -53,7 +59,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	});
 
 	return {
-		drive: { id: session.id, name: session.name, peerCount: session.peerCount },
+		drive: { id: session.id, name: session.name, peerCount: session.peerCount, isGuest: session.isGuest },
 		path: dirPath,
 		entries
 	};

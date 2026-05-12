@@ -15,44 +15,44 @@
 			action="?/create"
 			enctype="multipart/form-data"
 			use:enhance
-			class="w-96 space-y-4 rounded-lg border border-border bg-bg-secondary p-6"
+			class="border-border bg-bg-secondary w-96 space-y-4 rounded-lg border p-6"
 		>
-			<h2 class="font-mono text-xs uppercase tracking-[3px] text-accent">New Drive</h2>
+			<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">New Drive</h2>
 			<label class="block">
-				<span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-secondary">
+				<span class="text-text-secondary mb-1 block font-mono text-[10px] tracking-wider uppercase">
 					Name
 				</span>
 				<input
 					name="name"
 					type="text"
 					required
-					class="w-full rounded border border-border bg-bg-tertiary px-3 py-2 font-mono text-xs text-text-primary outline-none focus:border-accent-dim"
+					class="border-border bg-bg-tertiary text-text-primary focus:border-accent-dim w-full rounded border px-3 py-2 font-mono text-xs outline-none"
 				/>
 			</label>
 			<label class="block">
-				<span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-secondary">
+				<span class="text-text-secondary mb-1 block font-mono text-[10px] tracking-wider uppercase">
 					Icon (optional)
 				</span>
 				<input
 					name="icon"
 					type="file"
 					accept="image/*"
-					class="w-full font-mono text-xs text-text-secondary"
+					class="text-text-secondary w-full font-mono text-xs"
 				/>
 			</label>
 			{#if form?.missing}
-				<p class="font-mono text-[10px] text-danger">Name is required</p>
+				<p class="text-danger font-mono text-[10px]">Name is required</p>
 			{/if}
 			<div class="flex justify-end gap-2">
 				<a
 					href="/"
-					class="rounded px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-secondary hover:text-text-primary"
+					class="text-text-secondary hover:text-text-primary rounded px-3 py-2 font-mono text-[10px] tracking-wider uppercase"
 				>
 					Cancel
 				</a>
 				<button
 					type="submit"
-					class="rounded bg-accent px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-bg-primary hover:brightness-110"
+					class="bg-accent text-bg-primary rounded px-4 py-2 font-mono text-[10px] tracking-wider uppercase hover:brightness-110"
 				>
 					Create
 				</button>
@@ -63,11 +63,11 @@
 			method="POST"
 			action="?/accept"
 			use:enhance
-			class="w-96 space-y-4 rounded-lg border border-border bg-bg-secondary p-6"
+			class="border-border bg-bg-secondary w-96 space-y-4 rounded-lg border p-6"
 		>
-			<h2 class="font-mono text-xs uppercase tracking-[3px] text-accent">Accept Invite</h2>
+			<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">Accept Invite</h2>
 			<label class="block">
-				<span class="mb-1 block font-mono text-[10px] uppercase tracking-wider text-text-secondary">
+				<span class="text-text-secondary mb-1 block font-mono text-[10px] tracking-wider uppercase">
 					Invite URL
 				</span>
 				<input
@@ -75,22 +75,22 @@
 					type="text"
 					required
 					placeholder="ghostdrive://..."
-					class="w-full rounded border border-border bg-bg-tertiary px-3 py-2 font-mono text-xs text-text-primary outline-none focus:border-accent-dim"
+					class="border-border bg-bg-tertiary text-text-primary focus:border-accent-dim w-full rounded border px-3 py-2 font-mono text-xs outline-none"
 				/>
 			</label>
 			{#if form?.error}
-				<p class="font-mono text-[10px] text-danger">{form.error}</p>
+				<p class="text-danger font-mono text-[10px]">{form.error}</p>
 			{/if}
 			<div class="flex justify-end gap-2">
 				<a
 					href="/"
-					class="rounded px-3 py-2 font-mono text-[10px] uppercase tracking-wider text-text-secondary hover:text-text-primary"
+					class="text-text-secondary hover:text-text-primary rounded px-3 py-2 font-mono text-[10px] tracking-wider uppercase"
 				>
 					Cancel
 				</a>
 				<button
 					type="submit"
-					class="rounded bg-accent px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-bg-primary hover:brightness-110"
+					class="bg-accent text-bg-primary rounded px-4 py-2 font-mono text-[10px] tracking-wider uppercase hover:brightness-110"
 				>
 					Join
 				</button>
@@ -98,7 +98,7 @@
 		</form>
 	{:else}
 		<div class="text-center">
-			<p class="font-mono text-xs uppercase tracking-[3px] text-text-muted">
+			<p class="text-text-muted font-mono text-xs tracking-[3px] uppercase">
 				Select or create a drive
 			</p>
 		</div>

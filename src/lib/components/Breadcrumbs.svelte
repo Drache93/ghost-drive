@@ -12,11 +12,8 @@
 	}
 </script>
 
-<div class="flex items-center gap-1 font-mono text-[11px] text-text-secondary">
-	<a
-		href={`/drive/${driveId}`}
-		class="rounded px-1.5 py-0.5 transition hover:text-accent"
-	>
+<div class="text-text-secondary flex items-center gap-1 font-mono text-[11px]">
+	<a href={`/drive/${driveId}`} class="hover:text-accent rounded px-1.5 py-0.5 transition">
 		{driveName}
 	</a>
 	{#each parts as part, i}
@@ -26,7 +23,7 @@
 		{:else}
 			<a
 				href={`/drive/${driveId}?path=${encodeURIComponent(pathTo(i))}`}
-				class="rounded px-1.5 py-0.5 transition hover:text-accent"
+				class="hover:text-accent rounded px-1.5 py-0.5 transition"
 			>
 				{part}
 			</a>

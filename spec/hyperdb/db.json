@@ -1,114 +1,91 @@
 {
-  "version": 1,
-  "offset": 0,
-  "schema": [
-    {
-      "name": "sessions",
-      "namespace": "ghostdrive",
-      "id": 0,
-      "type": 1,
-      "version": 1,
-      "versionField": null,
-      "indexes": [],
-      "schema": "@ghostdrive/session",
-      "derived": false,
-      "key": [
-        "id"
-      ],
-      "trigger": null
-    },
-    {
-      "name": "registrations",
-      "namespace": "ghostdrive",
-      "id": 1,
-      "type": 1,
-      "version": 1,
-      "versionField": null,
-      "indexes": [
-        "@ghostdrive/registrations-by-session"
-      ],
-      "schema": "@ghostdrive/registration",
-      "derived": false,
-      "key": [
-        "sessionId",
-        "target"
-      ],
-      "trigger": null
-    },
-    {
-      "name": "invites",
-      "namespace": "ghostdrive",
-      "id": 2,
-      "type": 1,
-      "version": 1,
-      "versionField": null,
-      "indexes": [
-        "@ghostdrive/invites-by-session"
-      ],
-      "schema": "@ghostdrive/invite",
-      "derived": false,
-      "key": [
-        "sessionId",
-        "capKey"
-      ],
-      "trigger": null
-    },
-    {
-      "name": "joins",
-      "namespace": "ghostdrive",
-      "id": 3,
-      "type": 1,
-      "version": 1,
-      "versionField": null,
-      "indexes": [
-        "@ghostdrive/joins-by-session"
-      ],
-      "schema": "@ghostdrive/join",
-      "derived": false,
-      "key": [
-        "sessionId",
-        "peerKey"
-      ],
-      "trigger": null
-    },
-    {
-      "name": "registrations-by-session",
-      "namespace": "ghostdrive",
-      "id": 4,
-      "type": 2,
-      "version": 1,
-      "collection": "@ghostdrive/registrations",
-      "unique": false,
-      "deprecated": false,
-      "key": [
-        "sessionId"
-      ]
-    },
-    {
-      "name": "invites-by-session",
-      "namespace": "ghostdrive",
-      "id": 5,
-      "type": 2,
-      "version": 1,
-      "collection": "@ghostdrive/invites",
-      "unique": false,
-      "deprecated": false,
-      "key": [
-        "sessionId"
-      ]
-    },
-    {
-      "name": "joins-by-session",
-      "namespace": "ghostdrive",
-      "id": 6,
-      "type": 2,
-      "version": 1,
-      "collection": "@ghostdrive/joins",
-      "unique": false,
-      "deprecated": false,
-      "key": [
-        "sessionId"
-      ]
-    }
-  ]
+	"version": 1,
+	"offset": 0,
+	"schema": [
+		{
+			"name": "sessions",
+			"namespace": "ghostdrive",
+			"id": 0,
+			"type": 1,
+			"version": 1,
+			"versionField": null,
+			"indexes": [],
+			"schema": "@ghostdrive/session",
+			"derived": false,
+			"key": ["id"],
+			"trigger": null
+		},
+		{
+			"name": "registrations",
+			"namespace": "ghostdrive",
+			"id": 1,
+			"type": 1,
+			"version": 1,
+			"versionField": null,
+			"indexes": ["@ghostdrive/registrations-by-session"],
+			"schema": "@ghostdrive/registration",
+			"derived": false,
+			"key": ["sessionId", "target"],
+			"trigger": null
+		},
+		{
+			"name": "invites",
+			"namespace": "ghostdrive",
+			"id": 2,
+			"type": 1,
+			"version": 1,
+			"versionField": null,
+			"indexes": ["@ghostdrive/invites-by-session"],
+			"schema": "@ghostdrive/invite",
+			"derived": false,
+			"key": ["sessionId", "capKey"],
+			"trigger": null
+		},
+		{
+			"name": "joins",
+			"namespace": "ghostdrive",
+			"id": 3,
+			"type": 1,
+			"version": 1,
+			"versionField": null,
+			"indexes": ["@ghostdrive/joins-by-session"],
+			"schema": "@ghostdrive/join",
+			"derived": false,
+			"key": ["sessionId", "peerKey"],
+			"trigger": null
+		},
+		{
+			"name": "registrations-by-session",
+			"namespace": "ghostdrive",
+			"id": 4,
+			"type": 2,
+			"version": 1,
+			"collection": "@ghostdrive/registrations",
+			"unique": false,
+			"deprecated": false,
+			"key": ["sessionId"]
+		},
+		{
+			"name": "invites-by-session",
+			"namespace": "ghostdrive",
+			"id": 5,
+			"type": 2,
+			"version": 1,
+			"collection": "@ghostdrive/invites",
+			"unique": false,
+			"deprecated": false,
+			"key": ["sessionId"]
+		},
+		{
+			"name": "joins-by-session",
+			"namespace": "ghostdrive",
+			"id": 6,
+			"type": 2,
+			"version": 1,
+			"collection": "@ghostdrive/joins",
+			"unique": false,
+			"deprecated": false,
+			"key": ["sessionId"]
+		}
+	]
 }

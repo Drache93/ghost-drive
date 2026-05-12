@@ -164,9 +164,7 @@
 			{:else}
 				<ul class="border-border bg-bg-secondary space-y-1 rounded-md border p-2">
 					{#each data.peers as p (p.key)}
-						<li
-							class="hover:bg-bg-hover flex items-center gap-3 rounded px-3 py-2 transition"
-						>
+						<li class="hover:bg-bg-hover flex items-center gap-3 rounded px-3 py-2 transition">
 							<span
 								class="bg-success block h-1.5 w-1.5 rounded-full"
 								style:box-shadow="0 0 6px rgba(34,197,94,.6)"
@@ -188,10 +186,11 @@
 				bind:this={deleteForm}
 				method="POST"
 				action="?/deleteSession"
-				use:enhance={() => async ({ update }) => {
-					await update();
-					goto('/');
-				}}
+				use:enhance={() =>
+					async ({ update }) => {
+						await update();
+						goto('/');
+					}}
 				class="border-danger/40 bg-bg-secondary rounded-md border p-4"
 			>
 				<p class="text-text-secondary mb-3 font-mono text-[10px]">

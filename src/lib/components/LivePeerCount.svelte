@@ -1,33 +1,40 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
 
-	let { driveId, initial }: { driveId: string; initial: number } = $props();
+	let {
+		driveId,
+		initial,
+		reconnectSignal = 0,
+		onchange
+	}: {
+		driveId: string;
+		initial: number;
+		reconnectSignal?: number;
+		onchange?: (count: number) => void;
+	} = $props();
 
 	let peers = $state(initial);
-	let es: EventSource | null = null;
 
-	onMount(() => {
-		es = new EventSource(`/drive/${driveId}/stream`);
+	$effect(() => {
+		reconnectSignal; // reactive dependency — changing this closes and reopens the SSE
+		const es = new EventSource(`/drive/${driveId}/stream`);
 		es.addEventListener('peers', (e) => {
 			try {
 				const { count } = JSON.parse((e as MessageEvent).data);
-				peers = count;
-				// Re-run all loads so sidebar peer count + page readdir refresh.
-				invalidateAll();
+				if (count !== peers) {
+					peers = count;
+					onchange?.(count);
+					invalidateAll();
+				}
 			} catch {}
 		});
-		// Peer's drives just became queryable (RPC opened) — re-run readdir.
 		es.addEventListener('drives-changed', () => invalidateAll());
-	});
-
-	onDestroy(() => {
-		es?.close();
+		return () => es.close();
 	});
 </script>
 
 <span
-	class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider"
+	class="flex items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase"
 	class:text-success={peers > 0}
 	class:text-text-muted={peers === 0}
 >
