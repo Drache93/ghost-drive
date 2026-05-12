@@ -23,7 +23,7 @@
 	}
 </script>
 
-<header class="border-border bg-bg-secondary flex items-center gap-3 border-b px-4 py-3">
+<header class="border-border bg-bg-secondary flex h-11 items-center gap-3 border-b px-4">
 	<Breadcrumbs driveId={data.drive.id} driveName={data.drive.name} path={data.path} />
 	<div class="flex-1"></div>
 	<LivePeerCount
@@ -34,26 +34,35 @@
 	/>
 	<a
 		href={`/drive/${data.drive.id}/settings`}
-		class="text-text-secondary hover:text-accent rounded px-2 py-1 font-mono text-[10px] tracking-wider uppercase transition"
+		class="text-text-muted hover:text-accent rounded p-1.5 transition"
 		title="Drive settings"
 	>
-		⚙ Settings
+		<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" class="h-4 w-4">
+			<circle cx="8" cy="8" r="2" />
+			<path
+				d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"
+			/>
+		</svg>
 	</a>
 </header>
 
 {#if data.drive.isGuest && peers === 0}
 	<div
-		class="border-border flex items-center gap-3 border-b px-4 py-2 {connectionLost
-			? 'bg-danger/10'
-			: 'bg-bg-secondary'}"
+		class="flex items-center gap-3 border-b px-4 py-2 {connectionLost
+			? 'border-danger/40 bg-danger/5 border-l-2 border-l-danger'
+			: 'border-border border-l-2 border-l-text-muted bg-bg-secondary'}"
 	>
 		<span
-			class="block h-1.5 w-1.5 rounded-full"
+			class="block h-1.5 w-1.5 shrink-0 rounded-full"
 			class:bg-danger={connectionLost}
 			class:bg-text-muted={!connectionLost}
 			class:animate-pulse={!connectionLost}
 		></span>
-		<span class="text-text-secondary flex-1 font-mono text-[10px] tracking-wider">
+		<span
+			class="flex-1 font-mono text-[10px] tracking-wider"
+			class:text-danger={connectionLost}
+			class:text-text-secondary={!connectionLost}
+		>
 			{#if connectionLost}
 				Connection lost · showing cached files only
 			{:else}
@@ -63,7 +72,9 @@
 		<button
 			type="button"
 			onclick={retry}
-			class="text-accent hover:brightness-110 font-mono text-[10px] tracking-wider uppercase"
+			class="font-mono text-[10px] tracking-wider uppercase transition"
+			class:text-danger={connectionLost}
+			class:text-accent={!connectionLost}
 		>
 			Retry
 		</button>

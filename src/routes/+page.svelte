@@ -1,11 +1,19 @@
 <script lang="ts">
-	import type { ActionData } from './$types';
+	import type { PageData, ActionData } from './$types';
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import logo from '$lib/assets/images/ghost.png';
 
-	let { form }: { form: ActionData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const action = $derived(page.url.searchParams.get('action'));
+
+	$effect(() => {
+		if (data.autoOpen && !action) {
+			goto(`/drive/${data.autoOpen}`, { replaceState: true });
+		}
+	});
 </script>
 
 <div class="flex flex-1 items-center justify-center">
@@ -97,10 +105,28 @@
 			</div>
 		</form>
 	{:else}
-		<div class="text-center">
-			<p class="text-text-muted font-mono text-xs tracking-[3px] uppercase">
-				Select or create a drive
-			</p>
+		<div class="flex flex-col items-center gap-5 text-center">
+			<img src={logo} alt="" class="h-12 w-12 opacity-20" />
+			<div class="space-y-1">
+				<p class="text-text-secondary font-mono text-xs tracking-[3px] uppercase">No drives yet</p>
+				<p class="text-text-muted font-mono text-[10px]">
+					Create a drive or accept an invite to get started
+				</p>
+			</div>
+			<div class="flex gap-2">
+				<a
+					href="/?action=new"
+					class="bg-accent text-bg-primary rounded px-4 py-2 font-mono text-[10px] tracking-wider uppercase transition hover:brightness-110"
+				>
+					New Drive
+				</a>
+				<a
+					href="/?action=join"
+					class="border-border text-text-secondary hover:border-accent-dim hover:text-accent rounded border px-4 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+				>
+					Accept Invite
+				</a>
+			</div>
 		</div>
 	{/if}
 </div>

@@ -15,10 +15,9 @@
 		href: string;
 	} = $props();
 
-	const offline = $derived(isGuest && peers === 0 && !isFolder && !cached);
-
 	const ext = $derived(name.split('.').pop()?.toLowerCase() ?? '');
 	const fileKind = $derived(detectKind(ext));
+	const offline = $derived(isGuest && peers === 0 && !isFolder && !cached);
 
 	function detectKind(e: string): 'video' | 'audio' | 'image' | 'doc' | 'code' | 'generic' {
 		if (['mp4', 'mkv', 'webm', 'mov', 'avi'].includes(e)) return 'video';
@@ -32,11 +31,16 @@
 
 <a
 	{href}
-	class="group hover:bg-bg-hover relative flex flex-col items-center gap-2 rounded-md p-3 transition"
+	class="group relative flex flex-col items-center gap-1.5 rounded-md p-3 transition-all duration-150 hover:bg-bg-hover hover:scale-[1.03]"
 	class:opacity-40={offline}
 	title={offline ? 'Not available offline' : undefined}
 >
-	<div class="text-accent-dim relative flex h-12 w-12 items-center justify-center">
+	<div
+		class="relative flex h-12 w-12 items-center justify-center transition-all duration-150"
+		class:text-accent={cached}
+		class:text-accent-dim={!cached}
+		style={cached ? 'filter: drop-shadow(0 0 8px rgba(200,168,78,0.5))' : ''}
+	>
 		{#if isFolder}
 			<svg
 				viewBox="0 0 16 16"
@@ -113,12 +117,11 @@
 				<path d="M3 2h7l3 3v9H3z" />
 			</svg>
 		{/if}
-		{#if cached}
-			<span
-				class="bg-accent absolute top-0 right-0 h-2 w-2 rounded-full shadow-[0_0_4px_var(--color-accent)]"
-				title="cached"
-			></span>
-		{/if}
 	</div>
-	<span class="text-text-primary line-clamp-2 text-center text-[11px] leading-tight">{name}</span>
+	<span class="line-clamp-2 h-[2.5em] text-center text-[11px] leading-tight text-text-primary"
+		>{name}</span
+	>
+	<span class="font-mono text-[8px] tracking-widest uppercase {cached ? 'text-accent' : 'invisible'}"
+		>cached</span
+	>
 </a>

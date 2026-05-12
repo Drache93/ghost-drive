@@ -34,7 +34,7 @@
 	onConfirm={() => deleteForm?.requestSubmit()}
 />
 
-<header class="border-border bg-bg-secondary flex items-center gap-3 border-b px-4 py-3">
+<header class="border-border bg-bg-secondary flex h-11 items-center gap-3 border-b px-4">
 	<a
 		href={`/drive/${data.drive.id}`}
 		class="text-text-secondary hover:text-accent rounded px-2 py-1 font-mono text-[11px] transition"

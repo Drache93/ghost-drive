@@ -3,6 +3,7 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import type { LayoutData } from './$types';
 	import { page } from '$app/state';
+	import logo from '$lib/assets/images/ghost.png';
 
 	let { data, children }: { data: LayoutData; children: any } = $props();
 
@@ -19,7 +20,10 @@
 	}
 </script>
 
-<svelte:head><title>Ghost Drive</title></svelte:head>
+<svelte:head>
+	<title>Ghost Drive</title>
+	<link rel="icon" href={logo} />
+</svelte:head>
 
 <div class="bg-bg-primary text-text-primary relative flex h-screen w-screen overflow-hidden">
 	<!-- Sidebar: full width on desktop, slide-over on mobile -->

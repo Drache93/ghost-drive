@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import logo from '$lib/assets/images/ghost.png';
 
 	type SessionInfo = {
 		id: string;
@@ -14,39 +15,45 @@
 	const activeId = $derived(page.params?.id ?? null);
 </script>
 
-<aside class="border-border bg-bg-secondary flex h-full w-72 flex-col border-r py-4 sm:py-0">
-	<header class="border-border flex items-center justify-between border-b p-4">
-		<a href="/" class="block">
-			<h1 class="text-accent font-mono text-[10px] tracking-[4px] uppercase">Ghost Drive</h1>
+<aside class="border-border bg-bg-secondary flex h-full w-64 flex-col border-r">
+	<header class="border-border flex h-11 items-center justify-between border-b px-4">
+		<a href="/" class="flex items-center gap-2">
+			<img src={logo} alt="" class="h-5 w-5 shrink-0 opacity-80" />
+			<span class="text-accent font-mono text-[10px] tracking-[4px] uppercase">Ghost Drive</span>
 		</a>
 		<button
 			type="button"
 			aria-label="Close sidebar"
 			onclick={onClose}
-			class="text-text-muted hover:text-accent text-lg leading-none transition md:hidden"
+			class="text-text-muted hover:text-accent flex h-6 w-6 items-center justify-center rounded transition md:hidden"
 		>
-			×
+			<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4">
+				<path d="M3 3l10 10M13 3L3 13" />
+			</svg>
 		</button>
 	</header>
 
-	<nav class="flex-1 overflow-y-auto p-2">
+	<nav class="flex-1 overflow-y-auto py-2">
 		{#if sessions.length === 0}
-			<p class="text-text-muted px-2 py-3 font-mono text-[10px] tracking-wider uppercase">
-				No drives yet
-			</p>
+			<div class="flex flex-col items-center gap-2 px-4 py-8 text-center">
+				<img src={logo} alt="" class="h-6 w-6 opacity-20" />
+				<p class="text-text-muted font-mono text-[10px] tracking-wider uppercase">No drives yet</p>
+			</div>
 		{:else}
-			<ul class="space-y-1">
+			<ul>
 				{#each sessions as s (s.id)}
 					{@const active = s.id === activeId}
 					<li>
 						<a
 							href={`/drive/${s.id}`}
-							class="hover:bg-bg-hover flex items-center gap-3 rounded-md border-r-2 border-l-2 border-transparent px-3 py-2 transition {active
-								? 'bg-bg-hover border-l-accent border-r-accent'
-								: ''}"
+							class="hover:bg-bg-hover flex items-center gap-2.5 border-l-2 px-3 py-2 transition {active
+								? 'bg-bg-hover border-l-accent'
+								: 'border-transparent'}"
 						>
 							<span
-								class="bg-bg-tertiary text-accent-dim flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded"
+								class="bg-bg-tertiary flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded"
+								class:text-accent={active}
+								class:text-accent-dim={!active}
 							>
 								{#if s.icon}
 									<img src={s.icon} alt="" class="h-full w-full object-cover" />
@@ -56,17 +63,25 @@
 										fill="none"
 										stroke="currentColor"
 										stroke-width="1.2"
-										class="h-4 w-4"
+										class="h-3.5 w-3.5"
 									>
 										<path d="M2 4h12v8H2z" />
 										<circle cx="12" cy="8" r="1" />
 									</svg>
 								{/if}
 							</span>
-							<span class="flex-1 truncate text-sm">{s.name}</span>
+							<span
+								class="flex-1 truncate font-mono text-xs"
+								class:text-text-primary={active}
+								class:text-text-secondary={!active}>{s.name}</span
+							>
 							{#if s.peerCount > 0}
-								<span class="text-success font-mono text-[9px] tracking-wider">
-									{s.peerCount}
+								<span class="flex items-center gap-1">
+									<span
+										class="bg-success h-1.5 w-1.5 rounded-full"
+										style="box-shadow: 0 0 4px rgba(34,197,94,.6)"
+									></span>
+									<span class="text-success font-mono text-[9px]">{s.peerCount}</span>
 								</span>
 							{/if}
 						</a>
@@ -76,18 +91,36 @@
 		{/if}
 	</nav>
 
-	<footer class="border-border space-y-1 border-t p-2">
+	<footer class="border-border border-t p-2">
 		<a
 			href="/?action=new"
-			class="text-text-secondary hover:bg-bg-hover hover:text-accent block rounded-md px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+			class="text-text-secondary hover:bg-bg-hover hover:text-accent flex items-center gap-2 rounded px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
 		>
-			+ New Drive
+			<svg
+				viewBox="0 0 16 16"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.5"
+				class="h-3 w-3 shrink-0"
+			>
+				<path d="M8 2v12M2 8h12" />
+			</svg>
+			New Drive
 		</a>
 		<a
 			href="/?action=join"
-			class="text-text-secondary hover:bg-bg-hover hover:text-accent block rounded-md px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+			class="text-text-secondary hover:bg-bg-hover hover:text-accent flex items-center gap-2 rounded px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
 		>
-			⇲ Accept Invite
+			<svg
+				viewBox="0 0 16 16"
+				fill="none"
+				stroke="currentColor"
+				stroke-width="1.5"
+				class="h-3 w-3 shrink-0"
+			>
+				<path d="M8 2v8M4 7l4 4 4-4M2 13h12" />
+			</svg>
+			Accept Invite
 		</a>
 	</footer>
 </aside>

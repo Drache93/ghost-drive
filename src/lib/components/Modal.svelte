@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { fade, scale } from 'svelte/transition';
+
 	let {
 		open = $bindable(false),
 		title = '',
@@ -43,9 +45,11 @@
 		class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
 		role="dialog"
 		aria-modal="true"
+		transition:fade={{ duration: 120 }}
 	>
 		<div
 			class="border-border bg-bg-secondary mx-4 w-full max-w-md rounded-lg border p-6 shadow-2xl"
+			transition:scale={{ duration: 150, start: 0.96 }}
 		>
 			{#if title}
 				<h3 class="text-accent mb-2 font-mono text-xs tracking-[3px] uppercase">{title}</h3>

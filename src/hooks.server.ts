@@ -12,6 +12,8 @@ let app: any = null;
 if (!building && !app) {
 	const dir = path.join(storage.persistent(), 'ghost-drive');
 	app = new GhostDriveApp({ dir });
+	// Expose for build/index.js so it can await readiness before loadURL.
+	(globalThis as any).__ghostDriveApp = app;
 	app
 		.ready()
 		.then(() => console.log('ghost-drive ready, key:', app.key.toString('hex')))
