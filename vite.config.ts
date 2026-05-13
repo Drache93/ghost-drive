@@ -1,9 +1,10 @@
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { vitePlugin as bareExternals } from 'sveltekit-adapter-bare';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [tailwindcss(), sveltekit(), bareExternals()],
 	ssr: {
 		external: [
 			'distributed-drive',
@@ -22,13 +23,7 @@ export default defineConfig({
 			'protomux-rpc',
 			'safety-catch',
 			'record-cache',
-			'streamx',
-			'bare-storage',
-			'bare-fs',
-			'bare-path',
-			'bare-os',
-			'bare-crypto',
-			'bare-encoding'
+			'streamx'
 		]
 	}
 });
