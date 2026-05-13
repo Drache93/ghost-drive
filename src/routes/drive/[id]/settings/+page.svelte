@@ -37,9 +37,12 @@
 <header class="border-border bg-bg-secondary flex h-11 items-center gap-3 border-b px-4">
 	<a
 		href={`/drive/${data.drive.id}`}
-		class="text-text-secondary hover:text-accent rounded px-2 py-1 font-mono text-[11px] transition"
+		class="text-text-secondary hover:text-accent flex items-center gap-1.5 rounded px-2 py-1 font-mono text-[11px] transition"
 	>
-		◀ Back
+		<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3 w-3">
+			<path d="M10 3L5 8l5 5" />
+		</svg>
+		Back
 	</a>
 	<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">
 		{data.drive.name} / Settings
@@ -98,7 +101,7 @@
 								<input type="hidden" name="target" value={d.target} />
 								<button
 									type="submit"
-									class="text-text-muted hover:text-danger px-1 opacity-0 transition group-hover:opacity-100"
+									class="text-text-muted hover:text-danger px-1 transition md:opacity-0 md:group-hover:opacity-100"
 									title="Remove"
 								>
 									×

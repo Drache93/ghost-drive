@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { enhance } from '$app/forms';
+	import logo from '$lib/assets/images/ghost.png';
 
 	let { data }: { data: PageData } = $props();
 
@@ -62,7 +63,21 @@
 </header>
 
 <section class="flex flex-1 items-center justify-center overflow-hidden p-4">
-	{#if data.kind === 'video'}
+	{#if data.unavailable}
+		<div class="flex flex-col items-center gap-3 text-center">
+			<img src={logo} alt="" class="h-8 w-8 opacity-20" />
+			<p class="text-text-secondary font-mono text-xs tracking-wider uppercase">Not available offline</p>
+			<p class="text-text-muted font-mono text-[10px] leading-relaxed">
+				Connect to the host to access this file,<br />then cache it for offline use
+			</p>
+			<a
+				href={`/drive/${data.drive.id}?path=${encodeURIComponent(parentPath)}`}
+				class="text-accent font-mono text-[10px] tracking-wider uppercase underline underline-offset-2"
+			>
+				Back to drive
+			</a>
+		</div>
+	{:else if data.kind === 'video'}
 		<video src={fileUrl} controls autoplay class="max-h-full max-w-full bg-black"></video>
 	{:else if data.kind === 'audio'}
 		<audio src={fileUrl} controls autoplay class="w-full max-w-2xl"></audio>

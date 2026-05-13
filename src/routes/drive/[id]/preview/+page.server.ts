@@ -15,12 +15,27 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	const filePath = url.searchParams.get('file')?.replaceAll('+', ' ');
 	if (!filePath) throw error(400, 'Missing file');
 
+	const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+	const kind = detectKind(ext);
+
 	console.log(
 		`[preview] looking up entry '${filePath}' — session=${params.id}, drives=${session.drive.drives.length}, drive-types=[${session.drive.drives.map((d: any) => d.constructor?.name || 'unknown').join(', ')}], peers=${session.drive.peers}`
 	);
 
 	const entry = await session.drive.entry(filePath);
 	if (!entry) {
+		if (session.isGuest && session.peerCount === 0) {
+			return {
+				drive: { id: session.id, name: session.name },
+				path: filePath,
+				kind,
+				textPreview: null,
+				isBinary: false,
+				isEmpty: false,
+				cached: false,
+				unavailable: true
+			};
+		}
 		// Extra diagnostic: try each drive individually
 		for (let i = 0; i < session.drive.drives.length; i++) {
 			const d = session.drive.drives[i];
@@ -34,13 +49,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 			}
 		}
 		console.warn(
-			`[preview] 404: entry not found for ${filePath} in session ${params.id}, drives: ${session.drive.drives.length}, peers: ${session.drive._peers.size}`
+			`[preview] 404: entry not found for ${filePath} in session ${params.id}, drives: ${session.drive.drives.length}, peers: ${session.drive._peers?.size ?? '?'}`
 		);
 		throw error(404, 'File not found');
 	}
-
-	const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
-	const kind = detectKind(ext);
 
 	let textPreview: string | null = null;
 	let isBinary = false;
@@ -102,7 +114,8 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		textPreview,
 		isBinary,
 		isEmpty,
-		cached
+		cached,
+		unavailable: false
 	};
 };
 

@@ -5,11 +5,20 @@
 	import LivePeerCount from '$lib/components/LivePeerCount.svelte';
 	import { invalidateAll } from '$app/navigation';
 
+	type Entry = { name: string; isFolder: boolean; cached?: boolean };
+
 	let { data }: { data: PageData } = $props();
 
 	let peers = $state(data.drive.peerCount);
 	let connectionLost = $state(false);
 	let reconnectSignal = $state(0);
+	let cachedEntries = $state<Entry[] | null>(null);
+
+	$effect(() => {
+		Promise.resolve(data.entries).then((e) => {
+			cachedEntries = e as Entry[];
+		});
+	});
 
 	function handlePeersChange(n: number) {
 		if (n === 0 && peers > 0) connectionLost = true;
@@ -85,11 +94,38 @@
 {/if}
 
 <section class="flex-1 overflow-auto">
-	<FileGrid
-		driveId={data.drive.id}
-		path={data.path}
-		entries={data.entries}
-		{peers}
-		isGuest={data.drive.isGuest}
-	/>
+	{#await data.entries}
+		{#if cachedEntries !== null}
+			<FileGrid
+				driveId={data.drive.id}
+				path={data.path}
+				entries={cachedEntries}
+				{peers}
+				isGuest={data.drive.isGuest}
+			/>
+		{:else}
+			<div class="grid gap-3 p-4" style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));">
+				{#each Array.from({ length: 12 }) as _, i}
+					<div class="flex flex-col items-center gap-2.5 rounded-lg p-3">
+						<div
+							class="bg-bg-tertiary h-14 w-14 animate-pulse rounded-lg opacity-60"
+							style="animation-delay: {i * 40}ms"
+						></div>
+						<div
+							class="bg-bg-tertiary h-2 animate-pulse rounded opacity-40"
+							style="width: {50 + (i % 4) * 12}%; animation-delay: {i * 40 + 80}ms"
+						></div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	{:then entries}
+		<FileGrid
+			driveId={data.drive.id}
+			path={data.path}
+			{entries}
+			{peers}
+			isGuest={data.drive.isGuest}
+		/>
+	{/await}
 </section>

@@ -21,42 +21,44 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		`[file-browser] readdir '${dirPath}' — session=${params.id}, drives=${drive.drives.length}, drive-types=[${drive.drives.map((d: any) => d.constructor?.name || 'unknown').join(', ')}]`
 	);
 
-	const entries: Array<{ name: string; isFolder: boolean; cached: boolean }> = [];
-	try {
-		// distributed-drive's readdir yields entry objects with `key` (full path).
-		const seen = new Set<string>();
-		for await (const item of drive.readdir(dirPath)) {
-			const name = typeof item === 'string' ? item : item.key || item.name;
-			if (!name || name.startsWith('.')) continue;
-			if (seen.has(name)) continue;
-			seen.add(name);
+	const entries = (async () => {
+		const result: Array<{ name: string; isFolder: boolean; cached: boolean }> = [];
+		try {
+			const seen = new Set<string>();
+			for await (const item of drive.readdir(dirPath)) {
+				const name = typeof item === 'string' ? item : item.key || item.name;
+				if (!name || name.startsWith('.')) continue;
+				if (seen.has(name)) continue;
+				seen.add(name);
 
-			// Detect folder vs file: look up an entry; if missing → folder (subdir).
-			const fullPath = dirPath === '/' ? '/' + name : `${dirPath}/${name}`;
-			let isFolder = false;
-			try {
-				const entry = await drive.entry(fullPath);
-				isFolder = !entry || !entry.value;
-			} catch {
-				isFolder = true;
+				const fullPath = dirPath === '/' ? '/' + name : `${dirPath}/${name}`;
+				let isFolder = false;
+				try {
+					const entry = await drive.entry(fullPath);
+					isFolder = !entry || !entry.value;
+				} catch {
+					isFolder = true;
+				}
+
+				let cached = false;
+				try {
+					const cacheEntry = await session.cache.entry(fullPath);
+					cached = !!cacheEntry;
+				} catch {}
+
+				result.push({ name, isFolder, cached });
 			}
-
-			let cached = false;
-			try {
-				const cacheEntry = await session.cache.entry(fullPath);
-				cached = !!cacheEntry;
-			} catch {}
-
-			entries.push({ name, isFolder, cached });
+		} catch (err) {
+			console.warn('readdir failed:', err);
 		}
-	} catch (err) {
-		console.warn('readdir failed:', err);
-	}
 
-	entries.sort((a, b) => {
-		if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
-		return a.name.localeCompare(b.name);
-	});
+		result.sort((a, b) => {
+			if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+			return a.name.localeCompare(b.name);
+		});
+
+		return result;
+	})();
 
 	return {
 		drive: {
