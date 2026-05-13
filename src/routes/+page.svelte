@@ -16,14 +16,14 @@
 	});
 </script>
 
-<div class="flex flex-1 items-center justify-center">
+<div class="flex flex-1 items-center justify-center px-4">
 	{#if action === 'new'}
 		<form
 			method="POST"
 			action="?/create"
 			enctype="multipart/form-data"
 			use:enhance
-			class="border-border bg-bg-secondary w-96 space-y-4 rounded-lg border p-6"
+			class="border-border bg-bg-secondary w-full max-w-sm space-y-4 rounded-lg border p-6"
 		>
 			<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">New Drive</h2>
 			<label class="block">
@@ -71,7 +71,7 @@
 			method="POST"
 			action="?/accept"
 			use:enhance
-			class="border-border bg-bg-secondary w-96 space-y-4 rounded-lg border p-6"
+			class="border-border bg-bg-secondary w-full max-w-sm space-y-4 rounded-lg border p-6"
 		>
 			<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">Accept Invite</h2>
 			<label class="block">

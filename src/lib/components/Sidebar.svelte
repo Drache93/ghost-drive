@@ -15,7 +15,10 @@
 	const activeId = $derived(page.params?.id ?? null);
 </script>
 
-<aside class="border-border bg-bg-secondary flex h-full w-64 flex-col border-r">
+<aside
+	class="border-border bg-bg-secondary flex h-full w-full flex-col border-r md:w-64"
+	style="padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px)"
+>
 	<header class="border-border flex h-11 items-center justify-between border-b px-4">
 		<a href="/" class="flex items-center gap-2">
 			<img src={logo} alt="" class="h-5 w-5 shrink-0 opacity-80" />
@@ -46,7 +49,7 @@
 					<li>
 						<a
 							href={`/drive/${s.id}`}
-							class="hover:bg-bg-hover flex items-center gap-2.5 border-l-2 px-3 py-2 transition {active
+							class="hover:bg-bg-hover flex items-center gap-3 border-l-2 px-4 py-3 transition md:px-3 md:py-2 {active
 								? 'bg-bg-hover border-l-accent'
 								: 'border-transparent'}"
 						>
@@ -94,7 +97,7 @@
 	<footer class="border-border border-t p-2">
 		<a
 			href="/?action=new"
-			class="text-text-secondary hover:bg-bg-hover hover:text-accent flex items-center gap-2 rounded px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+			class="text-text-secondary hover:bg-bg-hover hover:text-accent flex items-center gap-2 rounded px-4 py-3 font-mono text-[10px] tracking-wider uppercase transition md:px-3 md:py-2"
 		>
 			<svg
 				viewBox="0 0 16 16"
@@ -109,7 +112,7 @@
 		</a>
 		<a
 			href="/?action=join"
-			class="text-text-secondary hover:bg-bg-hover hover:text-accent flex items-center gap-2 rounded px-3 py-2 font-mono text-[10px] tracking-wider uppercase transition"
+			class="text-text-secondary hover:bg-bg-hover hover:text-accent flex items-center gap-2 rounded px-4 py-3 font-mono text-[10px] tracking-wider uppercase transition md:px-3 md:py-2"
 		>
 			<svg
 				viewBox="0 0 16 16"

@@ -23,9 +23,10 @@
 	}
 </script>
 
-<header class="border-border bg-bg-secondary flex h-11 items-center gap-3 border-b px-4">
-	<Breadcrumbs driveId={data.drive.id} driveName={data.drive.name} path={data.path} />
-	<div class="flex-1"></div>
+<header class="border-border bg-bg-secondary flex h-11 items-center gap-2 border-b px-3 md:gap-3 md:px-4">
+	<div class="min-w-0 flex-1">
+		<Breadcrumbs driveId={data.drive.id} driveName={data.drive.name} path={data.path} />
+	</div>
 	<LivePeerCount
 		driveId={data.drive.id}
 		initial={data.drive.peerCount}

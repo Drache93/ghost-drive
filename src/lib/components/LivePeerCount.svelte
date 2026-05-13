@@ -34,16 +34,15 @@
 </script>
 
 <span
-	class="flex items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase"
+	class="flex shrink-0 items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase"
 	class:text-success={peers > 0}
 	class:text-text-muted={peers === 0}
 >
 	<span
-		class="block h-1.5 w-1.5 rounded-full"
+		class="block h-1.5 w-1.5 shrink-0 rounded-full"
 		class:bg-success={peers > 0}
 		class:bg-text-muted={peers === 0}
 		style:box-shadow={peers > 0 ? '0 0 6px rgba(34,197,94,.6)' : 'none'}
 	></span>
-	{peers}
-	{peers === 1 ? 'peer' : 'peers'}
+	<span class="hidden sm:inline">{peers} {peers === 1 ? 'peer' : 'peers'}</span>
 </span>
