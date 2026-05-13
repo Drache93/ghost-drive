@@ -9,16 +9,10 @@
 
 	let sidebarOpen = $state(false);
 
-	// Auto-close the sidebar whenever the route changes (mobile UX).
 	$effect(() => {
 		page.url.pathname;
 		sidebarOpen = false;
 	});
-
-	// Current drive name for mobile top bar context.
-	const activeName = $derived(
-		data.sessions.find((s: any) => s.id === page.params?.id)?.name ?? null
-	);
 </script>
 
 <svelte:head>
@@ -36,7 +30,11 @@
 		class:-translate-x-full={!sidebarOpen}
 		class:translate-x-0={sidebarOpen}
 	>
-		<Sidebar sessions={data.sessions} onClose={() => (sidebarOpen = false)} />
+		{#await data.sessions}
+			<Sidebar sessions={[]} onClose={() => (sidebarOpen = false)} />
+		{:then sessions}
+			<Sidebar {sessions} onClose={() => (sidebarOpen = false)} />
+		{/await}
 	</div>
 
 	<!-- Backdrop on mobile -->
@@ -50,7 +48,7 @@
 	{/if}
 
 	<main class="flex min-w-0 flex-1 flex-col overflow-hidden">
-		<!-- Mobile-only top bar — outer div owns safe-area bg, inner div is the fixed h-11 row -->
+		<!-- Mobile-only top bar -->
 		<div
 			class="border-border bg-bg-secondary border-b md:hidden"
 			style="padding-top: env(safe-area-inset-top, 0px)"
@@ -75,7 +73,11 @@
 				<span
 					class="text-text-secondary min-w-0 flex-1 truncate font-mono text-[10px] tracking-[3px] uppercase"
 				>
-					{activeName ?? 'Ghost Drive'}
+					{#await data.sessions then sessions}
+						{sessions.find((s: any) => s.id === page.params?.id)?.name ?? 'Ghost Drive'}
+					{:catch}
+						Ghost Drive
+					{/await}
 				</span>
 			</div>
 		</div>

@@ -1,19 +1,12 @@
 <script lang="ts">
-	import type { PageData, ActionData } from './$types';
+	import type { ActionData } from './$types';
 	import { enhance } from '$app/forms';
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import logo from '$lib/assets/images/ghost.png';
 
-	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let { form }: { form: ActionData } = $props();
 
 	const action = $derived(page.url.searchParams.get('action'));
-
-	$effect(() => {
-		if (data.autoOpen && !action) {
-			goto(`/drive/${data.autoOpen}`, { replaceState: true });
-		}
-	});
 </script>
 
 <div class="flex flex-1 items-center justify-center px-4">

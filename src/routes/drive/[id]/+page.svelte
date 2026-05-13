@@ -9,15 +9,15 @@
 
 	let { data }: { data: PageData } = $props();
 
-	let peers = $state(data.drive.peerCount);
+	let peers = $state(0);
 	let connectionLost = $state(false);
 	let reconnectSignal = $state(0);
 	let cachedEntries = $state<Entry[] | null>(null);
 
 	$effect(() => {
-		Promise.resolve(data.entries).then((e) => {
-			cachedEntries = e as Entry[];
-		});
+		(async () => {
+			cachedEntries = await data.entries;
+		})();
 	});
 
 	function handlePeersChange(n: number) {
@@ -32,100 +32,103 @@
 	}
 </script>
 
-<header
-	class="border-border bg-bg-secondary flex h-11 items-center gap-2 border-b px-3 md:gap-3 md:px-4"
->
-	<div class="min-w-0 flex-1">
-		<Breadcrumbs driveId={data.drive.id} driveName={data.drive.name} path={data.path} />
-	</div>
-	<LivePeerCount
-		driveId={data.drive.id}
-		initial={data.drive.peerCount}
-		{reconnectSignal}
-		onchange={handlePeersChange}
-	/>
-	<a
-		href={`/drive/${data.drive.id}/settings`}
-		class="text-text-muted hover:text-accent rounded p-1.5 transition"
-		title="Drive settings"
+{#await data.drive}
+	<header class="border-border bg-bg-secondary flex h-11 items-center border-b px-3 md:px-4">
+		<div class="bg-bg-tertiary h-3 w-40 animate-pulse rounded opacity-50"></div>
+	</header>
+{:then drive}
+	<header
+		class="border-border bg-bg-secondary flex h-11 items-center gap-2 border-b px-3 md:gap-3 md:px-4"
 	>
-		<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" class="h-4 w-4">
-			<circle cx="8" cy="8" r="2" />
-			<path
-				d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"
-			/>
-		</svg>
-	</a>
-</header>
-
-{#if data.drive.isGuest && peers === 0}
-	<div
-		class="flex items-center gap-3 border-b px-4 py-2 {connectionLost
-			? 'border-danger/40 bg-danger/5 border-l-danger border-l-2'
-			: 'border-border border-l-text-muted bg-bg-secondary border-l-2'}"
-	>
-		<span
-			class="block h-1.5 w-1.5 shrink-0 rounded-full"
-			class:bg-danger={connectionLost}
-			class:bg-text-muted={!connectionLost}
-			class:animate-pulse={!connectionLost}
-		></span>
-		<span
-			class="flex-1 font-mono text-[10px] tracking-wider"
-			class:text-danger={connectionLost}
-			class:text-text-secondary={!connectionLost}
-		>
-			{#if connectionLost}
-				Connection lost · showing cached files only
-			{:else}
-				Waiting for host · files will appear when connected
-			{/if}
-		</span>
-		<button
-			type="button"
-			onclick={retry}
-			class="font-mono text-[10px] tracking-wider uppercase transition"
-			class:text-danger={connectionLost}
-			class:text-accent={!connectionLost}
-		>
-			Retry
-		</button>
-	</div>
-{/if}
-
-<section class="flex-1 overflow-auto">
-	{#await data.entries}
-		{#if cachedEntries !== null}
-			<FileGrid
-				driveId={data.drive.id}
-				path={data.path}
-				entries={cachedEntries}
-				{peers}
-				isGuest={data.drive.isGuest}
-			/>
-		{:else}
-			<div class="grid gap-3 p-4" style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));">
-				{#each Array.from({ length: 12 }) as _, i}
-					<div class="flex flex-col items-center gap-2.5 rounded-lg p-3">
-						<div
-							class="bg-bg-tertiary h-14 w-14 animate-pulse rounded-lg opacity-60"
-							style="animation-delay: {i * 40}ms"
-						></div>
-						<div
-							class="bg-bg-tertiary h-2 animate-pulse rounded opacity-40"
-							style="width: {50 + (i % 4) * 12}%; animation-delay: {i * 40 + 80}ms"
-						></div>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	{:then entries}
-		<FileGrid
-			driveId={data.drive.id}
-			path={data.path}
-			{entries}
-			{peers}
-			isGuest={data.drive.isGuest}
+		<div class="min-w-0 flex-1">
+			<Breadcrumbs driveId={drive.id} driveName={drive.name} path={data.path} />
+		</div>
+		<LivePeerCount
+			driveId={drive.id}
+			initial={drive.peerCount}
+			{reconnectSignal}
+			onchange={handlePeersChange}
 		/>
-	{/await}
-</section>
+		<a
+			href={`/drive/${drive.id}/settings`}
+			class="text-text-muted hover:text-accent rounded p-1.5 transition"
+			title="Drive settings"
+		>
+			<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" class="h-4 w-4">
+				<circle cx="8" cy="8" r="2" />
+				<path
+					d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4"
+				/>
+			</svg>
+		</a>
+	</header>
+
+	{#if drive.isGuest && peers === 0}
+		<div
+			class="flex items-center gap-3 border-b px-4 py-2 {connectionLost
+				? 'border-danger/40 bg-danger/5 border-l-danger border-l-2'
+				: 'border-border border-l-text-muted bg-bg-secondary border-l-2'}"
+		>
+			<span
+				class="block h-1.5 w-1.5 shrink-0 rounded-full"
+				class:bg-danger={connectionLost}
+				class:bg-text-muted={!connectionLost}
+				class:animate-pulse={!connectionLost}
+			></span>
+			<span
+				class="flex-1 font-mono text-[10px] tracking-wider"
+				class:text-danger={connectionLost}
+				class:text-text-secondary={!connectionLost}
+			>
+				{#if connectionLost}
+					Connection lost · showing cached files only
+				{:else}
+					Waiting for host · files will appear when connected
+				{/if}
+			</span>
+			<button
+				type="button"
+				onclick={retry}
+				class="font-mono text-[10px] tracking-wider uppercase transition"
+				class:text-danger={connectionLost}
+				class:text-accent={!connectionLost}
+			>
+				Retry
+			</button>
+		</div>
+	{/if}
+
+	<section class="flex-1 overflow-auto">
+		{#await data.entries}
+			{#if cachedEntries !== null}
+				<FileGrid
+					driveId={drive.id}
+					path={data.path}
+					entries={cachedEntries}
+					{peers}
+					isGuest={drive.isGuest}
+				/>
+			{:else}
+				<div
+					class="grid gap-3 p-4"
+					style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));"
+				>
+					{#each Array.from({ length: 12 }) as _, i}
+						<div class="flex flex-col items-center gap-2.5 rounded-lg p-3">
+							<div
+								class="bg-bg-tertiary h-14 w-14 animate-pulse rounded-lg opacity-60"
+								style="animation-delay: {i * 40}ms"
+							></div>
+							<div
+								class="bg-bg-tertiary h-2 animate-pulse rounded opacity-40"
+								style="width: {50 + (i % 4) * 12}%; animation-delay: {i * 40 + 80}ms"
+							></div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		{:then entries}
+			<FileGrid driveId={drive.id} path={data.path} {entries} {peers} isGuest={drive.isGuest} />
+		{/await}
+	</section>
+{/await}

@@ -89,7 +89,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 						}
 
 						textPreview = all.toString('utf-8');
-						if (textPreview.includes('�')) {
+						if ((textPreview as string).includes('�')) {
 							isBinary = true;
 							textPreview = null;
 						}

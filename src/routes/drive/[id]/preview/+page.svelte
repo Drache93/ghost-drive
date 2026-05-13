@@ -66,7 +66,9 @@
 	{#if data.unavailable}
 		<div class="flex flex-col items-center gap-3 text-center">
 			<img src={logo} alt="" class="h-8 w-8 opacity-20" />
-			<p class="text-text-secondary font-mono text-xs tracking-wider uppercase">Not available offline</p>
+			<p class="text-text-secondary font-mono text-xs tracking-wider uppercase">
+				Not available offline
+			</p>
 			<p class="text-text-muted font-mono text-[10px] leading-relaxed">
 				Connect to the host to access this file,<br />then cache it for offline use
 			</p>

@@ -2,17 +2,16 @@ import type { Actions, PageServerLoad } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
-	if (url.searchParams.get('action')) return { autoOpen: null };
-	if (!locals.app?.opened) await locals.app?.ready?.();
+	if (url.searchParams.get('action')) return {};
 
+	await locals.app.ready();
 	const all = await locals.app.db.find('@ghostdrive/sessions', { gte: {}, lte: {} }).toArray();
 	const last = all.sort(
 		(a: any, b: any) => (b.lastOpened ?? b.createdAt ?? 0) - (a.lastOpened ?? a.createdAt ?? 0)
 	)[0];
 
-	return {
-		autoOpen: last && locals.app.sessions.has(last.id) ? last.id : null
-	};
+	if (last && locals.app.sessions.has(last.id)) throw redirect(303, `/drive/${last.id}`);
+	return {};
 };
 
 export const actions: Actions = {

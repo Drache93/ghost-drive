@@ -1,7 +1,6 @@
 import type { Handle } from '@sveltejs/kit';
 import { building } from '$app/environment';
 import GhostDriveApp from '$lib/server/app.js';
-// @ts-expect-error bare-storage
 import storage from 'bare-storage';
 import path from 'path';
 import process from 'process';

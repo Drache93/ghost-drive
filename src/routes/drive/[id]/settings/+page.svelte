@@ -11,7 +11,6 @@
 	let deleteForm: HTMLFormElement | undefined = $state();
 
 	function copy() {
-		if (!data.inviteUrl) return;
 		navigator.clipboard.writeText(data.inviteUrl).then(() => {
 			copied = true;
 			setTimeout(() => (copied = false), 1500);
@@ -158,28 +157,36 @@
 		<!-- Peers -->
 		<div>
 			<h3 class="text-text-muted mb-3 font-mono text-[10px] tracking-[2px] uppercase">Peers</h3>
-			{#if data.peers.length === 0}
-				<p
-					class="border-border bg-bg-secondary text-text-muted rounded-md border px-3 py-4 text-center font-mono text-[10px] tracking-wider uppercase"
+			{#await data.peers}
+				<div
+					class="border-border bg-bg-secondary rounded-md border px-3 py-4 text-center font-mono text-[10px]"
 				>
-					No peers yet
-				</p>
-			{:else}
-				<ul class="border-border bg-bg-secondary space-y-1 rounded-md border p-2">
-					{#each data.peers as p (p.key)}
-						<li class="hover:bg-bg-hover flex items-center gap-3 rounded px-3 py-2 transition">
-							<span
-								class="bg-success block h-1.5 w-1.5 rounded-full"
-								style:box-shadow="0 0 6px rgba(34,197,94,.6)"
-							></span>
-							<span class="text-text-primary flex-1 truncate font-mono text-xs">{p.short}</span>
-							<span class="text-success font-mono text-[9px] tracking-wider uppercase">
-								online
-							</span>
-						</li>
-					{/each}
-				</ul>
-			{/if}
+					<div class="bg-bg-tertiary mx-auto h-2 w-24 animate-pulse rounded opacity-40"></div>
+				</div>
+			{:then peers}
+				{#if peers.length === 0}
+					<p
+						class="border-border bg-bg-secondary text-text-muted rounded-md border px-3 py-4 text-center font-mono text-[10px] tracking-wider uppercase"
+					>
+						No peers yet
+					</p>
+				{:else}
+					<ul class="border-border bg-bg-secondary space-y-1 rounded-md border p-2">
+						{#each peers as p (p.key)}
+							<li class="hover:bg-bg-hover flex items-center gap-3 rounded px-3 py-2 transition">
+								<span
+									class="bg-success block h-1.5 w-1.5 rounded-full"
+									style:box-shadow="0 0 6px rgba(34,197,94,.6)"
+								></span>
+								<span class="text-text-primary flex-1 truncate font-mono text-xs">{p.short}</span>
+								<span class="text-success font-mono text-[9px] tracking-wider uppercase">
+									online
+								</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			{/await}
 		</div>
 
 		<!-- Danger zone -->

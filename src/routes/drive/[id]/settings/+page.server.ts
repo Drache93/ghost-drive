@@ -1,35 +1,14 @@
 import type { Actions, PageServerLoad } from './$types';
 import { error, fail, redirect } from '@sveltejs/kit';
-import b4a from 'b4a';
+import { getSession, loadPeers } from '$lib/server/loaders';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-	if (!locals.app?.opened) await locals.app?.ready?.();
-
-	const session = locals.app.getSession(params.id);
-	if (!session) throw error(404, 'Drive not found');
-
-	const drives = session.listDrives();
-
-	// Invite is always the drive's key — no need to "create" one.
-	const inviteUrl = locals.app.encodeInvite(session);
-
-	// Live peers from distributed-drive's peer set.
-	const peers: Array<{ key: string; short: string; online: boolean }> = [];
-
-	for await (const peer of session.drive.getPeerKeys()) {
-		const hex = b4a.toString(peer, 'hex');
-		peers.push({
-			key: hex,
-			short: `${hex.slice(0, 6)}…${hex.slice(-4)}`,
-			online: true
-		});
-	}
-
+	const session = await getSession(locals.app, params.id);
 	return {
 		drive: { id: session.id, name: session.name },
-		drives,
-		inviteUrl,
-		peers
+		drives: session.listDrives(),
+		inviteUrl: locals.app.encodeInvite(session),
+		peers: loadPeers(locals.app, params.id)
 	};
 };
 
