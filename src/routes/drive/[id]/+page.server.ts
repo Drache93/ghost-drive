@@ -59,7 +59,12 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	});
 
 	return {
-		drive: { id: session.id, name: session.name, peerCount: session.peerCount, isGuest: session.isGuest },
+		drive: {
+			id: session.id,
+			name: session.name,
+			peerCount: session.peerCount,
+			isGuest: session.isGuest
+		},
 		path: dirPath,
 		entries
 	};

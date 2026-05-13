@@ -23,7 +23,9 @@
 	}
 </script>
 
-<header class="border-border bg-bg-secondary flex h-11 items-center gap-2 border-b px-3 md:gap-3 md:px-4">
+<header
+	class="border-border bg-bg-secondary flex h-11 items-center gap-2 border-b px-3 md:gap-3 md:px-4"
+>
 	<div class="min-w-0 flex-1">
 		<Breadcrumbs driveId={data.drive.id} driveName={data.drive.name} path={data.path} />
 	</div>
@@ -50,8 +52,8 @@
 {#if data.drive.isGuest && peers === 0}
 	<div
 		class="flex items-center gap-3 border-b px-4 py-2 {connectionLost
-			? 'border-danger/40 bg-danger/5 border-l-2 border-l-danger'
-			: 'border-border border-l-2 border-l-text-muted bg-bg-secondary'}"
+			? 'border-danger/40 bg-danger/5 border-l-danger border-l-2'
+			: 'border-border border-l-text-muted bg-bg-secondary border-l-2'}"
 	>
 		<span
 			class="block h-1.5 w-1.5 shrink-0 rounded-full"

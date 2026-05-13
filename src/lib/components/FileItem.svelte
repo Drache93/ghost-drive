@@ -31,7 +31,7 @@
 
 <a
 	{href}
-	class="group relative flex flex-col items-center gap-1.5 rounded-md p-3 transition-all duration-150 hover:bg-bg-hover hover:scale-[1.03]"
+	class="group hover:bg-bg-hover relative flex flex-col items-center gap-1.5 rounded-md p-3 transition-all duration-150 hover:scale-[1.03]"
 	class:opacity-40={offline}
 	title={offline ? 'Not available offline' : undefined}
 >
@@ -118,10 +118,11 @@
 			</svg>
 		{/if}
 	</div>
-	<span class="line-clamp-2 h-[2.5em] text-center text-[11px] leading-tight text-text-primary"
+	<span class="text-text-primary line-clamp-2 h-[2.5em] text-center text-[11px] leading-tight"
 		>{name}</span
 	>
-	<span class="font-mono text-[8px] tracking-widest uppercase {cached ? 'text-accent' : 'invisible'}"
+	<span
+		class="font-mono text-[8px] tracking-widest uppercase {cached ? 'text-accent' : 'invisible'}"
 		>cached</span
 	>
 </a>

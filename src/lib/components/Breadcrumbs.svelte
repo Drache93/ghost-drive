@@ -17,7 +17,7 @@
 		{driveName}
 	</a>
 	{#each parts as part, i}
-		<span class="text-text-muted select-none px-0.5">›</span>
+		<span class="text-text-muted px-0.5 select-none">›</span>
 		{#if i === parts.length - 1}
 			<span class="text-text-primary px-1.5 py-0.5">{part}</span>
 		{:else}
