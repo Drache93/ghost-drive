@@ -1,12 +1,29 @@
 <script lang="ts">
-	import type { ActionData } from './$types';
+	import type { PageData, ActionData } from './$types';
 	import { enhance } from '$app/forms';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import logo from '$lib/assets/images/ghost.png';
 
-	let { form }: { form: ActionData } = $props();
+	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const action = $derived(page.url.searchParams.get('action'));
+
+	async function autoNavigate(autoOpen: Promise<string | null> | undefined) {
+		if (!autoOpen) return;
+		const id = await autoOpen;
+		if (id) goto(`/drive/${id}`);
+	}
+
+	$effect(() => {
+		autoNavigate(data.autoOpen);
+	});
+
+	function onActionSuccess({ result }: { result: any }) {
+		if (result.type === 'success' && result.data?.redirect) {
+			goto(result.data.redirect);
+		}
+	}
 </script>
 
 <div class="flex flex-1 items-center justify-center px-4">
@@ -15,7 +32,7 @@
 			method="POST"
 			action="?/create"
 			enctype="multipart/form-data"
-			use:enhance
+			use:enhance={() => async ({ result }) => onActionSuccess({ result })}
 			class="border-border bg-bg-secondary w-full max-w-sm space-y-4 rounded-lg border p-6"
 		>
 			<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">New Drive</h2>
@@ -63,7 +80,7 @@
 		<form
 			method="POST"
 			action="?/accept"
-			use:enhance
+			use:enhance={() => async ({ result }) => onActionSuccess({ result })}
 			class="border-border bg-bg-secondary w-full max-w-sm space-y-4 rounded-lg border p-6"
 		>
 			<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">Accept Invite</h2>

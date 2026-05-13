@@ -196,11 +196,9 @@
 				bind:this={deleteForm}
 				method="POST"
 				action="?/deleteSession"
-				use:enhance={() =>
-					async ({ update }) => {
-						await update();
-						goto('/');
-					}}
+				use:enhance={() => async () => {
+					goto('/');
+				}}
 				class="border-danger/40 bg-bg-secondary rounded-md border p-4"
 			>
 				<p class="text-text-secondary mb-3 font-mono text-[10px]">

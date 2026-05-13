@@ -1,5 +1,5 @@
 import type { Actions, PageServerLoad } from './$types';
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	if (!locals.app?.opened) await locals.app?.ready?.();
@@ -133,7 +133,7 @@ export const actions: Actions = {
 		} catch (err: any) {
 			return fail(500, { error: err.message });
 		}
-		throw redirect(303, `/drive/${params.id}/preview?file=${encodeURIComponent(filePath)}`);
+		return {};
 	}
 };
 

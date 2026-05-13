@@ -1,5 +1,5 @@
 import type { Actions, PageServerLoad } from './$types';
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import { getSession, loadPeers } from '$lib/server/loaders';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -31,7 +31,7 @@ export const actions: Actions = {
 			return fail(400, { error: err.message });
 		}
 
-		throw redirect(303, `/drive/${params.id}/settings`);
+		return {};
 	},
 
 	removeDrive: async ({ locals, params, request }) => {
@@ -43,11 +43,11 @@ export const actions: Actions = {
 		if (!target || target === 'cache') return fail(400, { error: 'Cannot remove cache' });
 
 		await session.removeDrive(target);
-		throw redirect(303, `/drive/${params.id}/settings`);
+		return {};
 	},
 
 	deleteSession: async ({ locals, params }) => {
 		await locals.app.removeSession(params.id);
-		throw redirect(303, '/');
+		return {};
 	}
 };

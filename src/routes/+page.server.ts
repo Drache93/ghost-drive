@@ -1,18 +1,22 @@
 import type { Actions, PageServerLoad } from './$types';
-import { fail, redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
+import type GhostDriveApp from '$lib/server/app.js';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+export const load: PageServerLoad = ({ locals, url }) => {
 	if (url.searchParams.get('action')) return {};
+	return { autoOpen: findLastSession(locals.app) };
+};
 
-	await locals.app.ready();
-	const all = await locals.app.db.find('@ghostdrive/sessions', { gte: {}, lte: {} }).toArray();
+async function findLastSession(app: GhostDriveApp | null): Promise<string | null> {
+	if (!app) return null;
+	await app.ready();
+	const all = (await app.db!.find('@ghostdrive/sessions', { gte: {}, lte: {} }).toArray()) as any[];
 	const last = all.sort(
 		(a: any, b: any) => (b.lastOpened ?? b.createdAt ?? 0) - (a.lastOpened ?? a.createdAt ?? 0)
 	)[0];
-
-	if (last && locals.app.sessions.has(last.id)) throw redirect(303, `/drive/${last.id}`);
-	return {};
-};
+	if (last && app.sessions.has(last.id)) return last.id;
+	return null;
+}
 
 export const actions: Actions = {
 	create: async ({ locals, request }) => {
@@ -28,7 +32,7 @@ export const actions: Actions = {
 		}
 
 		const session = await locals.app.createSession({ name, icon });
-		throw redirect(303, `/drive/${session.id}`);
+		return { redirect: `/drive/${session.id}` };
 	},
 
 	accept: async ({ locals, request }) => {
@@ -38,9 +42,8 @@ export const actions: Actions = {
 
 		try {
 			const session = await locals.app.acceptInvite(url);
-			throw redirect(303, `/drive/${session.id}`);
+			return { redirect: `/drive/${session.id}` };
 		} catch (err: any) {
-			if (err?.status === 303) throw err;
 			return fail(400, { url, error: err.message });
 		}
 	}
