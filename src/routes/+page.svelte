@@ -32,7 +32,9 @@
 			method="POST"
 			action="?/create"
 			enctype="multipart/form-data"
-			use:enhance={() => async ({ result }) => onActionSuccess({ result })}
+			use:enhance={() =>
+				async ({ result }) =>
+					onActionSuccess({ result })}
 			class="border-border bg-bg-secondary w-full max-w-sm space-y-4 rounded-lg border p-6"
 		>
 			<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">New Drive</h2>
@@ -80,7 +82,9 @@
 		<form
 			method="POST"
 			action="?/accept"
-			use:enhance={() => async ({ result }) => onActionSuccess({ result })}
+			use:enhance={() =>
+				async ({ result }) =>
+					onActionSuccess({ result })}
 			class="border-border bg-bg-secondary w-full max-w-sm space-y-4 rounded-lg border p-6"
 		>
 			<h2 class="text-accent font-mono text-xs tracking-[3px] uppercase">Accept Invite</h2>
